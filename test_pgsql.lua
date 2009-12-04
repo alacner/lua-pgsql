@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS `table` (
   PRIMARY KEY  (`id`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 ;
 --]]
-local db, err = pgsql.connect()
+local db, err = pgsql.connect("dbname=test")
 print_r(db)
 print_r(err)
 --[===[

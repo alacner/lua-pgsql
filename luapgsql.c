@@ -604,7 +604,7 @@ int luaopen_pgsql (lua_State *L) {
         { NULL, NULL },
     };
 //
-//    struct luaL_reg result_methods[] = {
+    struct luaL_reg result_methods[] = {
 //        { "data_seek",   Lpgsql_data_seek },
 //        { "num_fields",   Lpgsql_num_fields },
 //        { "num_rows",   Lpgsql_num_rows },
@@ -612,8 +612,8 @@ int luaopen_pgsql (lua_State *L) {
 //        { "fetch_assoc",   Lpgsql_fetch_assoc },
 //        { "fetch_array",   Lpgsql_fetch_array },
 //        { "free_result",   Lpgsql_free_result },
-//        { NULL, NULL }
-//    };
+        { NULL, NULL }
+    };
 //
     static const luaL_reg connection_methods[] = {
 //        { "error",   Lpgsql_error },
@@ -633,15 +633,15 @@ int luaopen_pgsql (lua_State *L) {
     };
 //
     luaM_register (L, LUA_PGSQL_CONN, connection_methods);
-//    luaM_register (L, LUA_PGSQL_RES, result_methods);
-    lua_pop (L, 1);
-//    lua_pop (L, 2);
+    luaM_register (L, LUA_PGSQL_RES, result_methods);
+    lua_pop (L, 2);
 //
     luaL_register (L, LUA_PGSQL_TABLENAME, driver);
 
-//    lua_pushliteral (L, "_MYSQLVERSION");
-//    lua_pushliteral (L, MYSQL_SERVER_VERSION);   
-    lua_settable (L, -3);     
+    //lua_pushliteral (L, "_PGSQLVERSION");
+    //lua_pushliteral (L, MYSQL_SERVER_VERSION);   
+    //lua_settable (L, -3);     
+    lua_settable (L, -1);     
 
     return 1;
 }
