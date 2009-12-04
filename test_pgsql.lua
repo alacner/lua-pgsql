@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS `table` (
 local db, err = pgsql.connect("dbname=test")
 print_r(db)
 print_r(err)
+print_r(db:host())
 --[===[
 print(db:select_db('testdb'))
 print(db:set_charset("utf-8"))
