@@ -34,8 +34,8 @@
 #define luaL_register(a, b, c) luaL_openlib((a), (b), (c), 0)
 #endif
 
-#define LUA_PGSQL_CONN "PgSQL connection"
-#define LUA_PGSQL_RES "PgSQL result"
+#define LUA_PGSQL_CONN "PostgreSQL connection"
+#define LUA_PGSQL_RES "PostgreSQL result"
 #define LUA_PGSQL_TABLENAME "pgsql"
 
 typedef struct {
@@ -59,21 +59,6 @@ typedef struct {
 void luaM_setmeta (lua_State *L, const char *name);
 int luaM_register (lua_State *L, const char *name, const luaL_reg *methods);
 int luaopen_pgsql (lua_State *L);
-
-///**
-//* Get the internal database type of the given column.
-//*/
-//static char *luaM_getcolumntype (enum enum_field_types type) {
-//
-//    switch (type) {
-//        //case MYSQL_TYPE_ENUM: case MYSQL_TYPE_SET:
-//        //    return "set";
-//        //case MYSQL_TYPE_NULL:
-//        //    return "null";
-//        default:
-//            return "undefined";
-//    }
-//}
 
 /**                   
 * Return the name of the object's metatable.
@@ -226,6 +211,11 @@ static int Lpg_tty (lua_State *L) {
     return 1;
 }
 
+static int Lpg_get_pid (lua_State *L) {
+    lua_pushnumber(L, PQbackendPID(Mget_conn(L)->conn));
+    return 1;
+}
+
 static int Lpg_version (lua_State *L) {
 	char *client = PG_VERSION;
 	lua_Number protocol = PQprotocolVersion(Mget_conn(L)->conn);
@@ -241,6 +231,10 @@ static int Lpg_version (lua_State *L) {
     luaM_pushvalue (L, "protocol", strlen("protocol"));
     lua_pushnumber (L, protocol);
     lua_rawset (L, -3);
+
+	if (protocol >= 3) {
+		server_version = atoi(PQparameterStatus(Mget_conn(L)->conn, "server_version"));
+    }
 
     luaM_pushvalue (L, "server_version", strlen("server_version"));
     lua_pushnumber (L, server_version);
@@ -265,10 +259,41 @@ static int Lpg_options (lua_State *L) {
 }
 
 static int Lpg_parameter_status (lua_State *L) {
-    const char *param_name = luaL_optstring(L, 1, NULL);
-	luaM_msg(L, 0, param_name);
-    const char *status = PQparameterStatus(Mget_conn(L)->conn, param_name);
-    luaM_pushvalue(L, status, strlen(strlen));
+    lua_pg_conn *my_conn = Mget_conn (L);
+    const char *param_name = luaL_optstring(L, 2, NULL);
+    const char *status = PQparameterStatus(my_conn->conn, param_name);
+    lua_pushstring (L, status);
+    return 1;
+}
+
+static int Lpg_ping (lua_State *L) {
+	PGresult *res;
+
+    lua_pg_conn *my_conn = Mget_conn (L);
+
+    /* ping connection */
+     res = PQexec(my_conn->conn, "SELECT 1;");
+    PQclear(res);
+
+    /* check status. */
+    if (PQstatus(my_conn->conn) == CONNECTION_OK) {
+		lua_pushboolean(L, 1);
+		return 1;
+	}
+
+    /* reset connection if it's broken */
+    PQreset(my_conn->conn);
+    if (PQstatus(my_conn->conn) == CONNECTION_OK) {
+		lua_pushboolean(L, 1);
+		return 1;
+    }
+
+	lua_pushboolean(L, 0);
+	return 1;
+}
+
+static int Lpg_last_error (lua_State *L) {
+    lua_pushstring(L, PQerrorMessage(Mget_conn(L)->conn));
     return 1;
 }
 
@@ -313,7 +338,7 @@ int luaopen_pgsql (lua_State *L) {
         { "version",   Lversion },
         { NULL, NULL },
     };
-//
+
     struct luaL_reg result_methods[] = {
 //        { "data_seek",   Lpg_data_seek },
 //        { "num_fields",   Lpg_num_fields },
@@ -324,22 +349,24 @@ int luaopen_pgsql (lua_State *L) {
 //        { "free_result",   Lpg_free_result },
         { NULL, NULL }
     };
-//
+
     static const luaL_reg connection_methods[] = {
         { "host",   Lpg_host },
         { "port",   Lpg_port },
         { "dbname",   Lpg_dbname },
         { "tty",   Lpg_tty },
+        { "get_pid",   Lpg_get_pid },
+        { "ping",   Lpg_ping },
         { "version",   Lpg_version },
         { "connection_status",   Lpg_connection_status },
         { "transaction_status",   Lpg_transaction_status },
         { "options",   Lpg_options },
         { "parameter_status",   Lpg_parameter_status },
-        //{ "",   Lpg_ },
+        { "last_error",   Lpg_last_error },
         { "close",   Lpg_close },
         { NULL, NULL }
     };
-//
+
     luaM_register (L, LUA_PGSQL_CONN, connection_methods);
     luaM_register (L, LUA_PGSQL_RES, result_methods);
     lua_pop (L, 2);
