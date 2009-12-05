@@ -10,10 +10,19 @@ CREATE TABLE IF NOT EXISTS `table` (
   PRIMARY KEY  (`id`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 ;
 --]]
-local db, err = pgsql.connect("dbname=test")
+local db, err = pgsql.connect("host=localhost dbname=test user=postgresql password=postgresql")
 print_r(db)
 print_r(err)
+--print_r(db:close())
 print_r(db:host())
+print_r(db:dbname())
+print_r(db:port())
+print_r(db:tty())
+print_r(db:version())
+print_r(db:connection_status())
+print_r(db:transaction_status())
+print_r(db:options())
+print_r(db:parameter_status("server_encoding"))
 --[===[
 print(db:select_db('testdb'))
 print(db:set_charset("utf-8"))
