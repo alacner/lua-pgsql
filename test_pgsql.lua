@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS `table` (
   PRIMARY KEY  (`id`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 ;
 --]]
-local db, err = pgsql.connect("host=localhost dbname=test user=postgresql password=postgresql")
+local db, err = pgsql.connect("host=localhost dbname=test user=postgres password=postgresql")
 print_r(db)
 print_r(err)
 --print_r(db:close())
@@ -26,6 +26,9 @@ print_r(db:options())
 print_r(db:parameter_status("server_encoding"))
 print_r(db:last_error())
 print_r(db:ping())
+local eba = db:escape_bytea("INSERT INTO test_table (image) VALUES ('$image_escaped'::bytea);")
+print_r(eba)
+print_r(db:unescape_bytea(eba))
 
 --[===[
 print(db:select_db('testdb'))

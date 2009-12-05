@@ -27,8 +27,8 @@
 #RM = rm
 
 
-DRIVER_LIBS= -L`pg_config --libdir` -lpq
-DRIVER_INCS= -I`pg_config --includedir`
+DRIVER_LIBS= -L/usr/local/pgsql/lib -lpq
+DRIVER_INCS= -I/usr/local/pgsql/include
 
 # Name of .pc file. "lua5.1" on Debian/Ubuntu
 LUAPKG = lua5.1

@@ -297,6 +297,26 @@ static int Lpg_last_error (lua_State *L) {
     return 1;
 }
 
+static int Lpg_escape_bytea (lua_State *L) {
+	size_t to_len;
+    lua_pg_conn *my_conn = Mget_conn (L);
+    const char *from = luaL_optstring(L, 2, NULL);
+    unsigned char *to = PQescapeBytea((unsigned char*)from, strlen(from), &to_len);
+    luaM_pushvalue (L, to, to_len-1);
+	PQfreemem(to);
+    return 1;
+}
+
+static int Lpg_unescape_bytea (lua_State *L) {
+	size_t to_len;
+    lua_pg_conn *my_conn = Mget_conn (L);
+    const char *from = luaL_optstring(L, 2, NULL);
+    unsigned char *to = PQunescapeBytea((unsigned char*)from, &to_len);
+    luaM_pushvalue (L, to, to_len);
+	PQfreemem(to);
+    return 1;
+}
+
 /**
 * Close PgSQL connection
 */
@@ -363,6 +383,8 @@ int luaopen_pgsql (lua_State *L) {
         { "options",   Lpg_options },
         { "parameter_status",   Lpg_parameter_status },
         { "last_error",   Lpg_last_error },
+        { "escape_bytea",   Lpg_escape_bytea},
+        { "unescape_bytea",   Lpg_unescape_bytea},
         { "close",   Lpg_close },
         { NULL, NULL }
     };
