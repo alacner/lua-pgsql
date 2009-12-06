@@ -38,6 +38,8 @@
 #define LUA_PGSQL_RES "PostgreSQL result"
 #define LUA_PGSQL_TABLENAME "pgsql"
 
+#define safe_emalloc(nmemb, size, offset)  malloc((nmemb) * (size) + (offset)) 
+
 typedef struct {
     short      closed;
 } pseudo_data;
@@ -317,6 +319,66 @@ static int Lpg_unescape_bytea (lua_State *L) {
     return 1;
 }
 
+static int Lpg_escape_string (lua_State *L) {
+	char *to = NULL;
+	int to_len, from_len;
+
+    lua_pg_conn *my_conn = Mget_conn (L);
+    const char *from = luaL_optstring(L, 2, NULL);
+	from_len = strlen(from);
+	to = (char *) safe_emalloc(from_len, 2, 1);
+
+	to_len = (int) PQescapeString(to, from, (size_t)from_len);
+
+    luaM_pushvalue (L, to, to_len);
+    return 1;
+}
+
+static int Lpg_connection_busy (lua_State *L) {
+    lua_pg_conn *my_conn = Mget_conn (L);
+
+    PQconsumeInput(my_conn->conn);
+    lua_pushboolean(L, PQisBusy(my_conn->conn));
+    return 1;
+}
+
+static int Lpg_cancel_query (lua_State *L) {
+    lua_pg_conn *my_conn = Mget_conn (L);
+	PGresult *pgsql_result;
+	lua_Number return_value;
+    return_value = PQrequestCancel(my_conn->conn);
+    while ((pgsql_result = PQgetResult(my_conn->conn))) {
+		PQclear(pgsql_result);
+    }
+
+    lua_pushboolean(L, return_value);
+    return 1;
+}
+
+static int Lpg_trace (lua_State *L) {
+    lua_pg_conn *my_conn = Mget_conn (L);
+	FILE *fp = NULL;
+
+    const char *filename = luaL_optstring(L, 2, NULL);
+    const char *mode = luaL_optstring(L, 3, "w");
+	fp = fopen(filename, mode);
+	if (fp == NULL) {
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+	PQtrace(my_conn->conn, fp);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+static int Lpg_untrace (lua_State *L) {
+    lua_pg_conn *my_conn = Mget_conn (L);
+
+	PQuntrace(my_conn->conn);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 /**
 * Close PgSQL connection
 */
@@ -385,6 +447,11 @@ int luaopen_pgsql (lua_State *L) {
         { "last_error",   Lpg_last_error },
         { "escape_bytea",   Lpg_escape_bytea},
         { "unescape_bytea",   Lpg_unescape_bytea},
+        { "escape_string",   Lpg_escape_string},
+        { "connection_busy", Lpg_connection_busy},
+        { "cancel_query", Lpg_cancel_query},
+        { "trace", Lpg_trace},
+        { "untrace", Lpg_untrace},
         { "close",   Lpg_close },
         { NULL, NULL }
     };

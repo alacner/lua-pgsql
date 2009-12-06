@@ -29,6 +29,12 @@ print_r(db:ping())
 local eba = db:escape_bytea("INSERT INTO test_table (image) VALUES ('$image_escaped'::bytea);")
 print_r(eba)
 print_r(db:unescape_bytea(eba))
+local eba = db:escape_string("INSERT INTO test_table (image) VALUES ('$image_escaped%\\'::bytea);")
+print_r(eba)
+print_r(db:trace("/tmp/test.log"))
+print_r(db:connection_busy())
+print_r(db:cancel_query())
+print_r(db:untrace())
 
 --[===[
 print(db:select_db('testdb'))
