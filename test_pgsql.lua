@@ -10,6 +10,10 @@ CREATE TABLE IF NOT EXISTS `table` (
   PRIMARY KEY  (`id`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 ;
 --]]
+local db, err = pgsql.connect("host=localhost dbname=test user=postgresql password=pql")
+print_r(db)
+print_r(err)
+print("---------------")
 local db, err = pgsql.connect("host=localhost dbname=test user=postgres password=postgresql")
 print_r(db)
 print_r(err)
@@ -34,7 +38,16 @@ print_r(eba)
 print_r(db:trace("/tmp/test.log"))
 print_r(db:connection_busy())
 print_r(db:cancel_query())
-print_r(db:untrace())
+print_r(db:client_encoding())
+print_r(db:set_client_encoding('gbk'))
+print_r(db:client_encoding())
+print_r(db:connection_reset())
+print('---- line 1 -----')
+local res = db:query("select 1")
+print('---- line 1.1 -----')
+print_r(res)
+print('---- line 2 -----')
+--print_r(db:untrace())
 
 --[===[
 print(db:select_db('testdb'))

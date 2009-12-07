@@ -34,8 +34,8 @@
 #define luaL_register(a, b, c) luaL_openlib((a), (b), (c), 0)
 #endif
 
-#define LUA_PGSQL_CONN "PostgreSQL connection"
-#define LUA_PGSQL_RES "PostgreSQL result"
+#define LUA_PGSQL_CONN "PgSQL connection"
+#define LUA_PGSQL_RES "PgSQL result"
 #define LUA_PGSQL_TABLENAME "pgsql"
 
 #define safe_emalloc(nmemb, size, offset)  malloc((nmemb) * (size) + (offset)) 
@@ -127,7 +127,6 @@ static int luaM_msg(lua_State *L, const int n, const char *m) {
         lua_pushnil(L);
     }
     lua_pushstring(L, m);
-    return 2;
 }
 
 /**
@@ -180,9 +179,14 @@ static int Lpg_connect (lua_State *L) {
 
 	PGconn *conn = PQconnectdb(conninfo);
 
-    if (PQstatus(conn) != CONNECTION_OK) {
-        return luaM_msg (L, 0, PQerrorMessage(conn));
+	if (conn == NULL) {
+        luaM_msg (L, 0, "Unable to connect to PostgreSQL server");
+		return 2;
+	}
+    else if (PQstatus(conn) != CONNECTION_OK) {
+		luaM_msg(L, 0, PQerrorMessage(conn));
         PQfinish(conn); /* Close conn if connect failed */
+        return 2;
     }
 
     /* fill in structure */
@@ -342,13 +346,24 @@ static int Lpg_connection_busy (lua_State *L) {
     return 1;
 }
 
+static int Lpg_connection_reset (lua_State *L) {
+    lua_pg_conn *my_conn = Mget_conn (L);
+
+    PQreset(my_conn->conn);
+    if (PQstatus(my_conn->conn) == CONNECTION_BAD) {
+		lua_pushboolean(L, 0);
+    }
+	lua_pushboolean(L, 1);
+    return 1;
+}
+
 static int Lpg_cancel_query (lua_State *L) {
     lua_pg_conn *my_conn = Mget_conn (L);
-	PGresult *pgsql_result;
+	PGresult *res;
 	lua_Number return_value;
     return_value = PQrequestCancel(my_conn->conn);
-    while ((pgsql_result = PQgetResult(my_conn->conn))) {
-		PQclear(pgsql_result);
+    while ((res = PQgetResult(my_conn->conn))) {
+		PQclear(res);
     }
 
     lua_pushboolean(L, return_value);
@@ -377,6 +392,98 @@ static int Lpg_untrace (lua_State *L) {
 	PQuntrace(my_conn->conn);
     lua_pushboolean(L, 1);
     return 1;
+}
+
+static int Lpg_client_encoding (lua_State *L) {
+    lua_pg_conn *my_conn = Mget_conn (L);
+
+	char *result_value = (char *)pg_encoding_to_char(PQclientEncoding(my_conn->conn));
+	lua_pushstring(L, result_value);
+    return 1;
+}
+
+static int Lpg_set_client_encoding (lua_State *L) {
+    lua_pg_conn *my_conn = Mget_conn (L);
+
+    const char *encoding = luaL_optstring(L, 2, NULL);
+	int result_value = (PQsetClientEncoding (my_conn->conn, encoding) == 0) ? 1 : 0;
+    lua_pushboolean(L, result_value);
+    return 1;
+}
+
+static int Lpg_query (lua_State *L) {
+	int leftover = 0;
+	ExecStatusType status;
+	PGresult *res;
+
+    lua_pg_conn *my_conn = Mget_conn (L);
+	const char *statement = luaL_checkstring (L, 2);
+
+	if (PQsetnonblocking(my_conn->conn, 0)) {
+		lua_pushstring(L, "Cannot set connection to blocking mode");
+		return 1;
+	}
+
+    while ((res = PQgetResult(my_conn->conn))) {
+        PQclear(res);
+        leftover = 1;
+    }
+
+    if (leftover) {
+        lua_pushstring(L, "Found results on this connection. Use pg_get_result() to get these results first");
+		return 1;
+    }
+	
+	res = PQexec(my_conn->conn, statement);
+
+	// auto reset
+    if (PQstatus(my_conn->conn) != CONNECTION_OK) {
+        PQclear(res);
+        PQreset(my_conn->conn);
+        res = PQexec(my_conn->conn, statement);
+    }
+
+    if (res) {
+        status = PQresultStatus(res);
+    } else {
+        status = (ExecStatusType) PQstatus(my_conn->conn);
+    }
+    switch (status) {
+        case PGRES_EMPTY_QUERY:
+        case PGRES_BAD_RESPONSE:
+        case PGRES_NONFATAL_ERROR:
+        case PGRES_FATAL_ERROR:
+			luaM_msg(L, 0, PQerrorMessage(my_conn->conn));
+            PQclear(res);
+            return 1;
+            break;
+        case PGRES_COMMAND_OK: /* successful command that did not return rows */
+        default:
+            if (res) {
+				lua_pg_res *my_res = (lua_pg_res *)lua_newuserdata(L, sizeof(lua_pg_res));
+				luaM_setmeta (L, LUA_PGSQL_RES);
+
+				PQnfields(my_conn->conn);
+				/* fill in structure */
+				my_res->closed = 0;
+				my_res->conn = LUA_NOREF;
+				my_res->numcols = 0;
+				my_res->colnames = LUA_NOREF;
+				my_res->coltypes = LUA_NOREF;
+				my_res->res = res;
+
+				lua_pushvalue(L, 1);
+
+				my_res->conn = luaL_ref (L, LUA_REGISTRYINDEX);
+
+				return 1;
+            } else {
+                PQclear(res);
+				lua_pushboolean (L, 0);
+				return 1;
+            }
+            break;
+    }
 }
 
 /**
@@ -441,6 +548,8 @@ int luaopen_pgsql (lua_State *L) {
         { "ping",   Lpg_ping },
         { "version",   Lpg_version },
         { "connection_status",   Lpg_connection_status },
+        { "connection_busy", Lpg_connection_busy},
+        { "connection_reset", Lpg_connection_reset},
         { "transaction_status",   Lpg_transaction_status },
         { "options",   Lpg_options },
         { "parameter_status",   Lpg_parameter_status },
@@ -448,10 +557,13 @@ int luaopen_pgsql (lua_State *L) {
         { "escape_bytea",   Lpg_escape_bytea},
         { "unescape_bytea",   Lpg_unescape_bytea},
         { "escape_string",   Lpg_escape_string},
-        { "connection_busy", Lpg_connection_busy},
         { "cancel_query", Lpg_cancel_query},
         { "trace", Lpg_trace},
         { "untrace", Lpg_untrace},
+        { "client_encoding", Lpg_client_encoding},
+        { "set_client_encoding", Lpg_set_client_encoding},
+        { "set_client_encoding", Lpg_set_client_encoding},
+        { "query",   Lpg_query },
         { "close",   Lpg_close },
         { NULL, NULL }
     };
