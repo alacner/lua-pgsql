@@ -10,13 +10,14 @@ CREATE TABLE IF NOT EXISTS `table` (
   PRIMARY KEY  (`id`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 ;
 --]]
-local db, err = pgsql.connect("host=localhost dbname=test user=postgresql password=pql")
+local db, err = pgsql.connect("host=localhost dbname=test user=postgres")
 print_r(db)
 print_r(err)
 print("---------------")
-local db, err = pgsql.connect("host=localhost dbname=test user=postgres password=postgresql")
+local db, err = pgsql.connect("host=localhost dbname=test user=postgresql")
 print_r(db)
 print_r(err)
+--[[
 --print_r(db:close())
 print_r(db:host())
 print_r(db:dbname())
@@ -42,85 +43,17 @@ print_r(db:client_encoding())
 print_r(db:set_client_encoding('gbk'))
 print_r(db:client_encoding())
 print_r(db:connection_reset())
+]]--
 print('---- line 1 -----')
 local res = db:query("select 1")
 print('---- line 1.1 -----')
 print_r(res)
+print('---- line 1.2 -----')
+local f = res:fetch_row()
+--local f = res:filed_name(0)
+print_r(f)
+--print_r(res:filed_name(0))
+print('---- line 1.3 -----')
+print_r(res)
 print('---- line 2 -----')
 --print_r(db:untrace())
-
---[===[
-print(db:select_db('testdb'))
-print(db:set_charset("utf-8"))
---os.exit();
-print(db:query("insert `table` (`hits`,`time`,`col1`,`col2`) values (10000, 33333, '天使', 'hehe')"))
-print(db:insert_id())
-print(db:affected_rows())
-print(db:query("insert `table` (`dhits`,`time`,`col1`,`col2`) values (10000, 33333, '天使', 'hehe')"))
-print(db:affected_rows())
-print(mysql.escape_string('哈哈"'))
-print(db:real_escape_string([['哈哈`"'\n]]))
-os.exit();
-local rs = db:query("select * from `table`")
---local rs = db:query("select * from `table` limit 30")
---local rs = db:unbuffered_query("select * from `table`")
-print(rs:num_fields())
-print(rs:num_rows())
---os.exit();
-
-
-
-print('------ row ----------')
-local row = rs:fetch_row()
-print_r(row)
-print('------ assoc ----------')
-local row = rs:fetch_assoc()
-print_r(row)
-print('------array MYSQL_BOTH----------')
-local row = rs:fetch_array("MYSQL_BOTH")
-print_r(row)
-print('------array MYSQL_ASSOC----------')
-local row = rs:fetch_array("MYSQL_ASSOC")
-print_r(row)
-print('------array MYSQL_NUM----------')
-local row = rs:fetch_array("MYSQL_NUM")
-print_r(row)
-print('------array----------')
-local row = rs:fetch_array()
-print_r(row)
---os.exit()
-while row do
-    print_r(row)
-    --row = rs:fetch_array("MYSQL_NUM")
-    row = rs:fetch_array("MYSQL_BOTH")
-    --row = rs:fetch_array("MYSQL_ASSOC")
-end
-
-print(mysql.version());
-
-
-
-
-
-
-
-
---[[
-print('----row------------')
-local row = rs:fetch_row()
-while row do
-    print_r(row)
-    row = rs:fetch_row()
-end
---]]
-
---[[
-print('--------assoc--------')
-local row = rs:fetch_assoc()
-while row do
-    print_r(row)
-    row = rs:fetch_assoc()
-end
---]]
-
-]===]

@@ -55,6 +55,7 @@ typedef struct {
     int        conn;               /* reference to connection */
     int        numcols;            /* number of columns */
     int        colnames, coltypes; /* reference to column information tables */
+	int        row;
     PGresult *res;
 } lua_pg_res;
 
@@ -120,7 +121,7 @@ int luaM_register (lua_State *L, const char *name, const luaL_reg *methods) {
 * message
 */
 
-static int luaM_msg(lua_State *L, const int n, const char *m) {
+static void luaM_msg(lua_State *L, const int n, const char *m) {
     if (n) {
         lua_pushnumber(L, 1);
     } else {
@@ -165,7 +166,7 @@ static lua_pg_res *Mget_res (lua_State *L) {
 }
 
 /**
-* MYSQL operate functions
+* PGSQL operate functions
 */
 
 /**
@@ -305,9 +306,15 @@ static int Lpg_last_error (lua_State *L) {
 
 static int Lpg_escape_bytea (lua_State *L) {
 	size_t to_len;
+	unsigned char *to; 
+
     lua_pg_conn *my_conn = Mget_conn (L);
     const char *from = luaL_optstring(L, 2, NULL);
-    unsigned char *to = PQescapeBytea((unsigned char*)from, strlen(from), &to_len);
+	if (my_conn->conn) {
+		to = PQescapeByteaConn(my_conn->conn, (unsigned char*)from, strlen(from), &to_len);
+	} else {
+		to = PQescapeBytea((unsigned char*)from, strlen(from), &to_len);
+	}
     luaM_pushvalue (L, to, to_len-1);
 	PQfreemem(to);
     return 1;
@@ -332,7 +339,11 @@ static int Lpg_escape_string (lua_State *L) {
 	from_len = strlen(from);
 	to = (char *) safe_emalloc(from_len, 2, 1);
 
-	to_len = (int) PQescapeString(to, from, (size_t)from_len);
+	if (my_conn->conn) {
+		to_len = (int) PQescapeStringConn(my_conn->conn, to, from, (size_t)from_len, NULL);
+	} else {
+		to_len = (int) PQescapeString(to, from, (size_t)from_len);
+	}
 
     luaM_pushvalue (L, to, to_len);
     return 1;
@@ -430,7 +441,7 @@ static int Lpg_query (lua_State *L) {
     }
 
     if (leftover) {
-        lua_pushstring(L, "Found results on this connection. Use pg_get_result() to get these results first");
+        lua_pushstring(L, "Found results on this connection. Use db:get_result() to get these results first");
 		return 1;
     }
 	
@@ -448,6 +459,7 @@ static int Lpg_query (lua_State *L) {
     } else {
         status = (ExecStatusType) PQstatus(my_conn->conn);
     }
+
     switch (status) {
         case PGRES_EMPTY_QUERY:
         case PGRES_BAD_RESPONSE:
@@ -463,11 +475,11 @@ static int Lpg_query (lua_State *L) {
 				lua_pg_res *my_res = (lua_pg_res *)lua_newuserdata(L, sizeof(lua_pg_res));
 				luaM_setmeta (L, LUA_PGSQL_RES);
 
-				PQnfields(my_conn->conn);
 				/* fill in structure */
 				my_res->closed = 0;
+				my_res->row = -1;
 				my_res->conn = LUA_NOREF;
-				my_res->numcols = 0;
+				my_res->numcols = PQnfields(res);
 				my_res->colnames = LUA_NOREF;
 				my_res->coltypes = LUA_NOREF;
 				my_res->res = res;
@@ -484,6 +496,65 @@ static int Lpg_query (lua_State *L) {
             }
             break;
     }
+}
+
+static int Lpg_field_num (lua_State *L) {
+	lua_pg_res *my_res = Mget_res (L);
+    const char *field_name = luaL_optstring(L, 2, NULL);
+    lua_pushnumber (L, (lua_Number) PQfnumber (my_res->res, field_name));
+    return 1;
+}
+
+static int Lpg_field_name (lua_State *L) {
+	lua_pg_res *my_res = Mget_res (L);
+    lua_Number field_number = luaL_optnumber(L, 2, 0);
+    lua_pushstring (L, PQfname (my_res->res, field_number));
+    return 1;
+}
+
+static int Lpg_fetch_row(lua_State *L) {
+	int	i, num_fields;
+    char            *element, *field_name;
+    uint            element_len;
+	lua_pg_res *my_res = Mget_res (L);
+
+	/* use internal row counter to access next row */
+	if (my_res->row >= PQntuples(my_res->res)) {
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+	my_res->row++;
+
+	lua_newtable (L); /* result */
+
+    for (i = 0, num_fields = PQnfields(my_res->res); i < num_fields; i++) {
+        if (PQgetisnull(my_res->res, my_res->row, i)) {
+			lua_pushnumber(L, i);
+			lua_pushnil (L);
+			lua_rawset (L, -3);
+
+			field_name = PQfname(my_res->res, i);
+			lua_pushstring(L, field_name);
+			lua_pushnil (L);
+			lua_rawset (L, -3);
+        } else {
+            element = PQgetvalue(my_res->res, my_res->row, i);
+            element_len = (element ? strlen(element) : 0);
+
+			if (element) {
+				lua_pushnumber(L, i);
+				lua_pushstring(L, element);
+				lua_rawset (L, -3);
+
+                field_name = PQfname(my_res->res, i);
+				lua_pushstring(L, field_name);
+				luaM_pushvalue(L, element, element_len);
+				lua_rawset (L, -3);
+			}
+        }
+    }
+
+	return 1;
 }
 
 /**
@@ -523,23 +594,18 @@ static int Lversion (lua_State *L) {
 int luaopen_pgsql (lua_State *L) {
     struct luaL_reg driver[] = {
         { "connect",   Lpg_connect },
-//        { "escape_string",   Lpg_escape_string },
         { "version",   Lversion },
         { NULL, NULL },
     };
 
     struct luaL_reg result_methods[] = {
-//        { "data_seek",   Lpg_data_seek },
-//        { "num_fields",   Lpg_num_fields },
-//        { "num_rows",   Lpg_num_rows },
-//        { "fetch_row",   Lpg_fetch_row },
-//        { "fetch_assoc",   Lpg_fetch_assoc },
-//        { "fetch_array",   Lpg_fetch_array },
-//        { "free_result",   Lpg_free_result },
+        { "field_num",   Lpg_field_num },
+        { "field_name",   Lpg_field_name },
+        { "fetch_row",   Lpg_fetch_row },
         { NULL, NULL }
     };
 
-    static const luaL_reg connection_methods[] = {
+    struct luaL_reg connection_methods[] = {
         { "host",   Lpg_host },
         { "port",   Lpg_port },
         { "dbname",   Lpg_dbname },
@@ -571,13 +637,12 @@ int luaopen_pgsql (lua_State *L) {
     luaM_register (L, LUA_PGSQL_CONN, connection_methods);
     luaM_register (L, LUA_PGSQL_RES, result_methods);
     lua_pop (L, 2);
-//
+
     luaL_register (L, LUA_PGSQL_TABLENAME, driver);
 
-    //lua_pushliteral (L, "_PGSQLVERSION");
-    //lua_pushliteral (L, MYSQL_SERVER_VERSION);   
-    //lua_settable (L, -3);     
-    lua_settable (L, -1);     
+    lua_pushliteral (L, "PG_VERSION");
+    lua_pushliteral (L, PG_VERSION);   
+    lua_settable (L, -3);     
 
     return 1;
 }
