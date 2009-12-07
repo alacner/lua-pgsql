@@ -45,13 +45,16 @@ print_r(db:client_encoding())
 print_r(db:connection_reset())
 ]]--
 print('---- line 1 -----')
-local res = db:query("select 1")
+local res = db:query([[SELECT "id","time" FROM "public"."tbl"]])
 print('---- line 1.1 -----')
 print_r(res)
 print('---- line 1.2 -----')
 local f = res:fetch_row()
+while f do
+	print_r(f)
+	f = res:fetch_row()
+end
 --local f = res:filed_name(0)
-print_r(f)
 --print_r(res:filed_name(0))
 print('---- line 1.3 -----')
 print_r(res)

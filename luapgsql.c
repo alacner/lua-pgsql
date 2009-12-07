@@ -519,7 +519,7 @@ static int Lpg_fetch_row(lua_State *L) {
 	lua_pg_res *my_res = Mget_res (L);
 
 	/* use internal row counter to access next row */
-	if (my_res->row >= PQntuples(my_res->res)) {
+	if (my_res->row > PQntuples(my_res->res)) {
 		lua_pushboolean(L, 0);
 		return 1;
 	}
@@ -529,9 +529,8 @@ static int Lpg_fetch_row(lua_State *L) {
 
     for (i = 0, num_fields = PQnfields(my_res->res); i < num_fields; i++) {
         if (PQgetisnull(my_res->res, my_res->row, i)) {
-			lua_pushnumber(L, i);
 			lua_pushnil (L);
-			lua_rawset (L, -3);
+			lua_rawseti (L, -2, i);
 
 			field_name = PQfname(my_res->res, i);
 			lua_pushstring(L, field_name);
@@ -542,9 +541,8 @@ static int Lpg_fetch_row(lua_State *L) {
             element_len = (element ? strlen(element) : 0);
 
 			if (element) {
-				lua_pushnumber(L, i);
 				lua_pushstring(L, element);
-				lua_rawset (L, -3);
+				lua_rawseti (L, -2, i);
 
                 field_name = PQfname(my_res->res, i);
 				lua_pushstring(L, field_name);
