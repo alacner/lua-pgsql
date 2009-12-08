@@ -38,13 +38,6 @@
 #define LUA_PGSQL_RES "PgSQL result"
 #define LUA_PGSQL_TABLENAME "pgsql"
 
-#define PGSQL_ASSOC     1<<0
-#define PGSQL_NUM       1<<1
-#define PGSQL_BOTH      (PGSQL_ASSOC|PGSQL_NUM)
-
-#define LUA_PG_DATA_LENGTH 1
-#define LUA_PG_DATA_ISNULL 2
-
 #define safe_emalloc(nmemb, size, offset)  malloc((nmemb) * (size) + (offset)) 
 
 typedef struct {
@@ -54,6 +47,7 @@ typedef struct {
 typedef struct {
     short   closed;
     int     env;
+	int		field_types;
     PGconn *conn;
 } lua_pg_conn;
 
@@ -230,6 +224,66 @@ static int Lpg_get_pid (lua_State *L) {
     return 1;
 }
 
+static int Lpg_do_get_field_name (lua_State *L, int oid) {
+	PGresult *res;
+	const char *sql;
+
+    lua_pg_conn *my_conn = Mget_conn (L);
+	if (oid) {
+		lua_pushfstring(L, "select oid,typname from pg_type where oid=%d", oid);
+		sql = lua_tolstring(L, -1, NULL);
+		lua_pop(L, 1);
+	} else {
+		sql = "select oid,typname from pg_type";
+	}
+
+	/* hash all oid's */
+	if ((res = PQexec(my_conn->conn, sql)) == NULL || PQresultStatus(res) != PGRES_TUPLES_OK) {
+		if (res) {
+			PQclear(res);
+		}
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+    int i,num_rows;
+    int oid_offset,name_offset;
+    char *tmp_oid, *tmp_name;
+
+	num_rows = PQntuples(res);
+	oid_offset = PQfnumber(res,"oid");
+	name_offset = PQfnumber(res,"typname");
+
+	if (oid) {
+		tmp_name = PQgetvalue(res, 0, name_offset);
+		luaM_pushvalue(L, tmp_name, strlen(tmp_name));
+	} else {
+		lua_newtable (L); /* result */
+
+		for ( i = 0; i < num_rows; i++) {
+			if ((tmp_oid = PQgetvalue(res, i, oid_offset)) == NULL) {
+				continue;
+			}
+
+			if ((tmp_name = PQgetvalue(res, i, name_offset)) == NULL) {
+				continue;
+			}
+
+			luaM_pushvalue(L, tmp_oid, strlen(tmp_oid));
+			luaM_pushvalue(L, tmp_name, strlen(tmp_name));
+			lua_rawset(L, -3);
+		}
+	}
+	PQclear(res);
+
+	return 1;
+}
+
+static int Lpg_get_field_name (lua_State *L) {
+    lua_Number oid = luaL_optnumber(L, 2, 0);
+	return Lpg_do_get_field_name (L, oid);
+}
+
 static int Lpg_version (lua_State *L) {
 	char *client = PG_VERSION;
 	lua_Number protocol = PQprotocolVersion(Mget_conn(L)->conn);
@@ -329,7 +383,7 @@ static int Lpg_escape_bytea (lua_State *L) {
 
 static int Lpg_unescape_bytea (lua_State *L) {
 	size_t to_len;
-    lua_pg_conn *my_conn = Mget_conn (L);
+    //lua_pg_conn *my_conn = Mget_conn (L);
     const char *from = luaL_optstring(L, 2, NULL);
     unsigned char *to = PQunescapeBytea((unsigned char*)from, &to_len);
     luaM_pushvalue (L, to, to_len);
@@ -512,11 +566,63 @@ static int Lpg_field_num (lua_State *L) {
     return 1;
 }
 
-static int Lpg_field_name (lua_State *L) {
+#define LUA_PG_FIELD_NAME 1
+#define LUA_PG_FIELD_SIZE 2
+#define LUA_PG_FIELD_TYPE 3
+#define LUA_PG_FIELD_TYPE_OID 4
+
+static int Lpg_get_field_info(lua_State *L, int entry_type) {
+	Oid oid;
+	char *fname;
+	int fsize;
 	lua_pg_res *my_res = Mget_res (L);
     lua_Number field_number = luaL_optnumber(L, 2, 0);
-    lua_pushstring (L, PQfname (my_res->res, field_number));
-    return 1;
+
+    if (field_number < 0 || field_number >= PQnfields(my_res->res)) {
+		lua_pushboolean(L, 0);
+        lua_pushstring(L, "Bad field offset specified");
+		return 2;
+    }
+
+    switch (entry_type) {
+        case LUA_PG_FIELD_NAME:
+			fname = PQfname(my_res->res, field_number);
+            luaM_pushvalue(L, fname, strlen(fname));
+			return 1;
+            break;
+        case LUA_PG_FIELD_SIZE:
+			fsize = PQfsize(my_res->res, field_number);
+            lua_pushnumber(L, fsize);
+            break;
+        case LUA_PG_FIELD_TYPE:
+            oid = PQftype(my_res->res, field_number);
+			lua_pushnumber(L, oid);
+			//return Lpg_do_get_field_name(L, oid);
+            break;
+        case LUA_PG_FIELD_TYPE_OID:
+            oid = PQftype(my_res->res, field_number);
+			lua_pushnumber(L, oid);
+            break;
+        default:
+			lua_pushboolean(L, 0);
+    }
+	return 1;
+}
+
+static int Lpg_field_name (lua_State *L) {
+	return Lpg_get_field_info(L, LUA_PG_FIELD_NAME);
+}
+
+static int Lpg_field_size (lua_State *L) {
+	return Lpg_get_field_info(L, LUA_PG_FIELD_SIZE);
+}
+
+static int Lpg_field_type (lua_State *L) {
+	return Lpg_get_field_info(L, LUA_PG_FIELD_TYPE);
+}
+
+static int Lpg_field_type_oid (lua_State *L) {
+	return Lpg_get_field_info(L, LUA_PG_FIELD_TYPE_OID);
 }
 
 static int Lpg_num_rows (lua_State *L) {
@@ -533,6 +639,9 @@ static int Lpg_affected_rows (lua_State *L) {
     lua_pushnumber(L, atoi(PQcmdTuples(Mget_res(L)->res)));
     return 1;
 }
+
+#define LUA_PG_DATA_LENGTH 1
+#define LUA_PG_DATA_ISNULL 2
 
 static int Lpg_data_info (lua_State *L, int entry_type) {
 	int field_offset, pgsql_row;
@@ -553,7 +662,7 @@ static int Lpg_data_info (lua_State *L, int entry_type) {
 		return 1;
 	}
 
-	if (lua_isnumber(L, field)) {
+	if (lua_isnumber(L, (int)field)) {
 		field_offset = atoi(field);		
 	} else {
 		field_offset = PQfnumber(my_res->res, field);
@@ -582,6 +691,10 @@ static int Lpg_field_is_null (lua_State *L) {
 static int Lpg_field_prtlen(lua_State *L) {
 	return Lpg_data_info(L, LUA_PG_DATA_LENGTH);
 }
+
+#define PGSQL_ASSOC     1<<0
+#define PGSQL_NUM       1<<1
+#define PGSQL_BOTH      (PGSQL_ASSOC|PGSQL_NUM)
 
 static int Lpg_do_fetch(lua_State *L, int result_type) {
 	int	i, num_fields;
@@ -703,6 +816,9 @@ int luaopen_pgsql (lua_State *L) {
     struct luaL_reg result_methods[] = {
         { "field_num",   Lpg_field_num },
         { "field_name",   Lpg_field_name },
+        { "field_size",   Lpg_field_size },
+        { "field_type",   Lpg_field_type },
+        { "field_type_oid",   Lpg_field_type_oid },
         { "field_is_null",   Lpg_field_is_null },
         { "field_prtlen",   Lpg_field_prtlen },
         { "fetch_row",   Lpg_fetch_row },
@@ -720,6 +836,7 @@ int luaopen_pgsql (lua_State *L) {
         { "dbname",   Lpg_dbname },
         { "tty",   Lpg_tty },
         { "get_pid",   Lpg_get_pid },
+        { "get_field_name",   Lpg_get_field_name },
         { "ping",   Lpg_ping },
         { "version",   Lpg_version },
         { "connection_status",   Lpg_connection_status },

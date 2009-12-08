@@ -17,7 +17,10 @@ print("---------------")
 local db, err = pgsql.connect("host=localhost dbname=test user=postgresql")
 print_r(db)
 print_r(err)
---[[
+--[====[
+local eba = db:escape_bytea("INSERT INTO test_table (image) VALUES ('$image_escaped'::bytea);")
+print_r(eba)
+print_r(db:unescape_bytea(eba))
 --print_r(db:close())
 print_r(db:host())
 print_r(db:dbname())
@@ -31,9 +34,6 @@ print_r(db:options())
 print_r(db:parameter_status("server_encoding"))
 print_r(db:last_error())
 print_r(db:ping())
-local eba = db:escape_bytea("INSERT INTO test_table (image) VALUES ('$image_escaped'::bytea);")
-print_r(eba)
-print_r(db:unescape_bytea(eba))
 local eba = db:escape_string("INSERT INTO test_table (image) VALUES ('$image_escaped%\\'::bytea);")
 print_r(eba)
 print_r(db:trace("/tmp/test.log"))
@@ -43,7 +43,16 @@ print_r(db:client_encoding())
 print_r(db:set_client_encoding('gbk'))
 print_r(db:client_encoding())
 print_r(db:connection_reset())
-]]--
+local res = db:query([[INSERT INTO "public"."tbl" ("time") VALUES (NULL) ]])
+print_r(res)
+print_r(res:num_rows());
+print_r(res:num_fields());
+print_r(res:affected_rows());
+
+print('---- line -1 -----')
+print_r(db:get_field_name())
+print_r(db:get_field_name(30))
+]====]--
 print('---- line 1 -----')
 local res = db:query([[SELECT "id","time" FROM "public"."tbl"]])
 print('---- line 1.1 -----')
@@ -55,22 +64,26 @@ while f do
 	print_r(f)
 	f = res:fetch_row()
 end
---]]
 local f = res:fetch_assoc()
+print_r(res:field_is_null('id'));
+print_r(res:field_prtlen('id'));
 while f do
 	print_r(f)
-	print_r(res:field_is_null('id'));
-	print_r(res:field_prtlen('id'));
-	f = res:fetch_assoc()
+	--f = res:fetch_assoc()
 end
-print_r(res:num_rows());
-print_r(res:num_fields());
-local res = db:query([[INSERT INTO "public"."tbl" ("time") VALUES (NULL) ]])
-print_r(res)
-print_r(res:affected_rows());
+--]]
+local f,t = res:field_type(0);
+--local f,t = res:field_type_oid(0);
+--print_r(db:get_field_name(f))
+print_r(f)
+print_r(t)
+--[====[
+print_r(f)
+print_r(t)
 --local f = res:filed_name(0)
 --print_r(res:filed_name(0))
 print('---- line 1.3 -----')
 print_r(res)
 print('---- line 2 -----')
 --print_r(db:untrace())
+]====]--
