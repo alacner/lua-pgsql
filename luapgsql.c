@@ -38,6 +38,10 @@
 #define LUA_PGSQL_RES "PgSQL result"
 #define LUA_PGSQL_TABLENAME "pgsql"
 
+#define PGSQL_ASSOC     1<<0
+#define PGSQL_NUM       1<<1
+#define PGSQL_BOTH      (PGSQL_ASSOC|PGSQL_NUM)
+
 #define safe_emalloc(nmemb, size, offset)  malloc((nmemb) * (size) + (offset)) 
 
 typedef struct {
@@ -477,7 +481,7 @@ static int Lpg_query (lua_State *L) {
 
 				/* fill in structure */
 				my_res->closed = 0;
-				my_res->row = -1;
+				my_res->row = 0;
 				my_res->conn = LUA_NOREF;
 				my_res->numcols = PQnfields(res);
 				my_res->colnames = LUA_NOREF;
@@ -512,47 +516,95 @@ static int Lpg_field_name (lua_State *L) {
     return 1;
 }
 
-static int Lpg_fetch_row(lua_State *L) {
+static int Lpg_num_rows (lua_State *L) {
+    lua_pushnumber(L, PQntuples(Mget_res(L)->res));
+    return 1;
+}
+
+static int Lpg_num_fields (lua_State *L) {
+    lua_pushnumber(L, PQnfields(Mget_res(L)->res));
+    return 1;
+}
+
+static int Lpg_affected_rows (lua_State *L) {
+    lua_pushnumber(L, atoi(PQcmdTuples(Mget_res(L)->res)));
+    return 1;
+}
+
+static int Lpg_do_fetch(lua_State *L, int result_type) {
 	int	i, num_fields;
     char            *element, *field_name;
     uint            element_len;
 	lua_pg_res *my_res = Mget_res (L);
 
+    if ( ! result_type) {
+		result_type = PGSQL_BOTH;
+    }
+
 	/* use internal row counter to access next row */
-	if (my_res->row > PQntuples(my_res->res)) {
+	if (my_res->row >= PQntuples(my_res->res)) {
 		lua_pushboolean(L, 0);
 		return 1;
 	}
-	my_res->row++;
 
 	lua_newtable (L); /* result */
 
     for (i = 0, num_fields = PQnfields(my_res->res); i < num_fields; i++) {
         if (PQgetisnull(my_res->res, my_res->row, i)) {
-			lua_pushnil (L);
-			lua_rawseti (L, -2, i);
-
-			field_name = PQfname(my_res->res, i);
-			lua_pushstring(L, field_name);
-			lua_pushnil (L);
-			lua_rawset (L, -3);
+			if (result_type & PGSQL_NUM) {
+				lua_pushnil (L);
+				lua_rawseti (L, -2, i);
+			}
+			if (result_type & PGSQL_ASSOC) {
+				field_name = PQfname(my_res->res, i);
+				lua_pushstring(L, field_name);
+				lua_pushnil (L);
+				lua_rawset (L, -3);
+			}
         } else {
             element = PQgetvalue(my_res->res, my_res->row, i);
             element_len = (element ? strlen(element) : 0);
 
 			if (element) {
-				lua_pushstring(L, element);
-				lua_rawseti (L, -2, i);
-
-                field_name = PQfname(my_res->res, i);
-				lua_pushstring(L, field_name);
-				luaM_pushvalue(L, element, element_len);
-				lua_rawset (L, -3);
+				if (result_type & PGSQL_NUM) {
+					lua_pushstring(L, element);
+					lua_rawseti (L, -2, i);
+				}
+				if (result_type & PGSQL_ASSOC) {
+					field_name = PQfname(my_res->res, i);
+					lua_pushstring(L, field_name);
+					luaM_pushvalue(L, element, element_len);
+					lua_rawset (L, -3);
+				}
 			}
         }
     }
 
+	my_res->row++;
+
 	return 1;
+}
+
+static int Lpg_fetch_row (lua_State *L) {
+    return Lpg_do_fetch(L, PGSQL_NUM);
+}
+
+static int Lpg_fetch_assoc (lua_State *L) {
+    return Lpg_do_fetch(L, PGSQL_ASSOC);
+}
+
+static int Lpg_fetch_array (lua_State *L) {
+    const char *result_type = luaL_optstring (L, 2, "PGSQL_BOTH");
+
+    if ( ! strcasecmp(result_type, "PGSQL_NUM")) {
+        return Lpg_do_fetch(L, PGSQL_NUM);
+    }
+    else if ( ! strcasecmp(result_type, "PGSQL_ASSOC")) {
+        return Lpg_do_fetch(L, PGSQL_ASSOC);
+    }
+    else {
+        return Lpg_do_fetch(L, PGSQL_BOTH);
+    }
 }
 
 /**
@@ -600,6 +652,11 @@ int luaopen_pgsql (lua_State *L) {
         { "field_num",   Lpg_field_num },
         { "field_name",   Lpg_field_name },
         { "fetch_row",   Lpg_fetch_row },
+        { "fetch_assoc",   Lpg_fetch_assoc },
+        { "fetch_array",   Lpg_fetch_array },
+        { "num_fields",   Lpg_num_fields },
+        { "num_rows",   Lpg_num_rows },
+        { "affected_rows",   Lpg_affected_rows },
         { NULL, NULL }
     };
 

@@ -49,11 +49,23 @@ local res = db:query([[SELECT "id","time" FROM "public"."tbl"]])
 print('---- line 1.1 -----')
 print_r(res)
 print('---- line 1.2 -----')
+--[[
 local f = res:fetch_row()
 while f do
 	print_r(f)
 	f = res:fetch_row()
 end
+--]]
+local f = res:fetch_assoc()
+while f do
+	print_r(f)
+	f = res:fetch_assoc()
+end
+print_r(res:num_rows());
+print_r(res:num_fields());
+local res = db:query([[INSERT INTO "public"."tbl" ("time") VALUES (NULL) ]])
+print_r(res)
+print_r(res:affected_rows());
 --local f = res:filed_name(0)
 --print_r(res:filed_name(0))
 print('---- line 1.3 -----')
