@@ -59,6 +59,8 @@ end
 local f = res:fetch_assoc()
 while f do
 	print_r(f)
+	print_r(res:field_is_null('id'));
+	print_r(res:field_prtlen('id'));
 	f = res:fetch_assoc()
 end
 print_r(res:num_rows());

@@ -42,6 +42,9 @@
 #define PGSQL_NUM       1<<1
 #define PGSQL_BOTH      (PGSQL_ASSOC|PGSQL_NUM)
 
+#define LUA_PG_DATA_LENGTH 1
+#define LUA_PG_DATA_ISNULL 2
+
 #define safe_emalloc(nmemb, size, offset)  malloc((nmemb) * (size) + (offset)) 
 
 typedef struct {
@@ -531,6 +534,55 @@ static int Lpg_affected_rows (lua_State *L) {
     return 1;
 }
 
+static int Lpg_data_info (lua_State *L, int entry_type) {
+	int field_offset, pgsql_row;
+
+	lua_pg_res *my_res = Mget_res (L);
+    const char *row = luaL_optstring(L, 2, 0);
+    const char *field = luaL_optstring(L, 3, NULL);
+	
+	if (field == NULL) {
+		pgsql_row = my_res->row;
+		field = row;
+	} else {
+		pgsql_row = atoi(row);
+	}
+
+	if (pgsql_row >= PQntuples(my_res->res)) {
+		lua_pushstring(L, "Unable to jump to row on PostgreSQL!");
+		return 1;
+	}
+
+	if (lua_isnumber(L, field)) {
+		field_offset = atoi(field);		
+	} else {
+		field_offset = PQfnumber(my_res->res, field);
+	}
+	
+	if (field_offset < 0 || field_offset >= PQnfields(my_res->res)) {
+		lua_pushstring(L, "Bad column offset specified");
+		return 1;
+	}
+
+    switch (entry_type) {
+        case LUA_PG_DATA_LENGTH:
+            lua_pushnumber(L, PQgetlength(my_res->res, pgsql_row, field_offset));
+            break;
+        case LUA_PG_DATA_ISNULL:
+            lua_pushnumber(L, PQgetisnull(my_res->res, pgsql_row, field_offset));
+            break;
+    }
+    return 1;
+}
+
+static int Lpg_field_is_null (lua_State *L) {
+	return Lpg_data_info(L, LUA_PG_DATA_ISNULL);
+}
+
+static int Lpg_field_prtlen(lua_State *L) {
+	return Lpg_data_info(L, LUA_PG_DATA_LENGTH);
+}
+
 static int Lpg_do_fetch(lua_State *L, int result_type) {
 	int	i, num_fields;
     char            *element, *field_name;
@@ -651,6 +703,8 @@ int luaopen_pgsql (lua_State *L) {
     struct luaL_reg result_methods[] = {
         { "field_num",   Lpg_field_num },
         { "field_name",   Lpg_field_name },
+        { "field_is_null",   Lpg_field_is_null },
+        { "field_prtlen",   Lpg_field_prtlen },
         { "fetch_row",   Lpg_fetch_row },
         { "fetch_assoc",   Lpg_fetch_assoc },
         { "fetch_array",   Lpg_fetch_array },
