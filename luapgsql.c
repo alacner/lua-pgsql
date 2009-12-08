@@ -63,6 +63,7 @@ typedef struct {
 void luaM_setmeta (lua_State *L, const char *name);
 int luaM_register (lua_State *L, const char *name, const luaL_reg *methods);
 int luaopen_pgsql (lua_State *L);
+void Lpg_get_field_types (lua_State *L, lua_pg_conn *my_conn);
 
 /**                   
 * Return the name of the object's metatable.
@@ -141,7 +142,6 @@ static void luaM_pushvalue (lua_State *L, void *row, long int len) {
         lua_pushlstring (L, row, len);
 }
 
-
 /**
 * Handle Part
 */
@@ -187,7 +187,7 @@ static int Lpg_connect (lua_State *L) {
 	}
     else if (PQstatus(conn) != CONNECTION_OK) {
 		luaM_msg(L, 0, PQerrorMessage(conn));
-        PQfinish(conn); /* Close conn if connect failed */
+        PQfinish(conn);
         return 2;
     }
 
@@ -195,8 +195,90 @@ static int Lpg_connect (lua_State *L) {
     my_conn->closed = 0;
     my_conn->env = LUA_NOREF;
     my_conn->conn = conn;
+	my_conn->field_types = LUA_NOREF;
 
-    return 1;
+	PGresult *res;
+
+	lua_newtable (L); /* field types result */
+
+	/* hash all oid's */
+	if ((res = PQexec(my_conn->conn, "select oid,typname from pg_type")) == NULL || PQresultStatus(res) != PGRES_TUPLES_OK) {
+		if (res) {
+			PQclear(res);
+		}
+	} else {
+
+		int i,num_rows;
+		int oid_offset,name_offset;
+		char *tmp_oid, *tmp_name;
+
+		num_rows = PQntuples(res);
+		oid_offset = PQfnumber(res, "oid");
+		name_offset = PQfnumber(res, "typname");
+
+
+		for ( i = 0; i < num_rows; i++) {
+			if ((tmp_oid = PQgetvalue(res, i, oid_offset)) == NULL) {
+				continue;
+			}
+
+			if ((tmp_name = PQgetvalue(res, i, name_offset)) == NULL) {
+				continue;
+			}
+
+			luaM_pushvalue(L, tmp_oid, strlen(tmp_oid));
+			luaM_pushvalue(L, tmp_name, strlen(tmp_name));
+			lua_rawset(L, -3);
+		}
+		PQclear(res);
+	}
+
+	//lua_pushvalue (L, 0);
+	my_conn->field_types = luaL_ref (L, LUA_REGISTRYINDEX);
+
+	lua_pushvalue(L, -1);
+	return 1;
+}
+
+void Lpg_get_field_types (lua_State *L, lua_pg_conn *my_conn) {
+	PGresult *res;
+
+	lua_newtable (L); /* field types result */
+
+	/* hash all oid's */
+	if ((res = PQexec(my_conn->conn, "select oid,typname from pg_type")) == NULL || PQresultStatus(res) != PGRES_TUPLES_OK) {
+		if (res) {
+			PQclear(res);
+		}
+	} else {
+
+		int i,num_rows;
+		int oid_offset,name_offset;
+		char *tmp_oid, *tmp_name;
+
+		num_rows = PQntuples(res);
+		oid_offset = PQfnumber(res, "oid");
+		name_offset = PQfnumber(res, "typname");
+
+
+		for ( i = 0; i < num_rows; i++) {
+			if ((tmp_oid = PQgetvalue(res, i, oid_offset)) == NULL) {
+				continue;
+			}
+
+			if ((tmp_name = PQgetvalue(res, i, name_offset)) == NULL) {
+				continue;
+			}
+
+			luaM_pushvalue(L, tmp_oid, strlen(tmp_oid));
+			luaM_pushvalue(L, tmp_name, strlen(tmp_name));
+			lua_rawset(L, -3);
+		}
+		PQclear(res);
+	}
+
+	lua_pushvalue (L, 0);
+	my_conn->field_types = luaL_ref (L, LUA_REGISTRYINDEX);
 }
 
 static int Lpg_host (lua_State *L) {
@@ -224,64 +306,11 @@ static int Lpg_get_pid (lua_State *L) {
     return 1;
 }
 
-static int Lpg_do_get_field_name (lua_State *L, int oid) {
-	PGresult *res;
-	const char *sql;
-
-    lua_pg_conn *my_conn = Mget_conn (L);
-	if (oid) {
-		lua_pushfstring(L, "select oid,typname from pg_type where oid=%d", oid);
-		sql = lua_tolstring(L, -1, NULL);
-		lua_pop(L, 1);
-	} else {
-		sql = "select oid,typname from pg_type";
-	}
-
-	/* hash all oid's */
-	if ((res = PQexec(my_conn->conn, sql)) == NULL || PQresultStatus(res) != PGRES_TUPLES_OK) {
-		if (res) {
-			PQclear(res);
-		}
-		lua_pushboolean(L, 0);
-		return 1;
-	}
-
-    int i,num_rows;
-    int oid_offset,name_offset;
-    char *tmp_oid, *tmp_name;
-
-	num_rows = PQntuples(res);
-	oid_offset = PQfnumber(res,"oid");
-	name_offset = PQfnumber(res,"typname");
-
-	if (oid) {
-		tmp_name = PQgetvalue(res, 0, name_offset);
-		luaM_pushvalue(L, tmp_name, strlen(tmp_name));
-	} else {
-		lua_newtable (L); /* result */
-
-		for ( i = 0; i < num_rows; i++) {
-			if ((tmp_oid = PQgetvalue(res, i, oid_offset)) == NULL) {
-				continue;
-			}
-
-			if ((tmp_name = PQgetvalue(res, i, name_offset)) == NULL) {
-				continue;
-			}
-
-			luaM_pushvalue(L, tmp_oid, strlen(tmp_oid));
-			luaM_pushvalue(L, tmp_name, strlen(tmp_name));
-			lua_rawset(L, -3);
-		}
-	}
-	PQclear(res);
-
-	return 1;
-}
 
 static int Lpg_get_field_name (lua_State *L) {
     lua_Number oid = luaL_optnumber(L, 2, 0);
-	return Lpg_do_get_field_name (L, oid);
+	//return Lpg_do_get_field_name (L, oid);
+	return 1;
 }
 
 static int Lpg_version (lua_State *L) {

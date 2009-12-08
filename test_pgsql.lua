@@ -17,6 +17,7 @@ print("---------------")
 local db, err = pgsql.connect("host=localhost dbname=test user=postgresql")
 print_r(db)
 print_r(err)
+print("++++++++++++++++++++")
 --[====[
 local eba = db:escape_bytea("INSERT INTO test_table (image) VALUES ('$image_escaped'::bytea);")
 print_r(eba)
@@ -58,12 +59,12 @@ local res = db:query([[SELECT "id","time" FROM "public"."tbl"]])
 print('---- line 1.1 -----')
 print_r(res)
 print('---- line 1.2 -----')
---[[
 local f = res:fetch_row()
 while f do
 	print_r(f)
 	f = res:fetch_row()
 end
+--[[
 local f = res:fetch_assoc()
 print_r(res:field_is_null('id'));
 print_r(res:field_prtlen('id'));
@@ -72,7 +73,7 @@ while f do
 	--f = res:fetch_assoc()
 end
 --]]
-local f,t = res:field_type(0);
+--local f,t = res:field_type(0);
 --local f,t = res:field_type_oid(0);
 --print_r(db:get_field_name(f))
 print_r(f)
