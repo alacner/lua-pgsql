@@ -858,7 +858,6 @@ int luaopen_pgsql (lua_State *L) {
         { "untrace", Lpg_untrace},
         { "client_encoding", Lpg_client_encoding},
         { "set_client_encoding", Lpg_set_client_encoding},
-        { "set_client_encoding", Lpg_set_client_encoding},
         { "query",   Lpg_query },
         { "close",   Lpg_close },
         { NULL, NULL }
