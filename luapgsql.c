@@ -47,6 +47,7 @@ typedef struct {
 typedef struct {
     short   closed;
     int     env;
+	int		field_class;
 	int		field_types;
     PGconn *conn;
 } lua_pg_conn;
@@ -64,6 +65,7 @@ void luaM_setmeta (lua_State *L, const char *name);
 int luaM_register (lua_State *L, const char *name, const luaL_reg *methods);
 int luaopen_pgsql (lua_State *L);
 int Lpg_get_field_types (lua_State *L, PGconn *conn);
+int Lpg_get_field_class (lua_State *L, PGconn *conn);
 
 /**                   
 * Return the name of the object's metatable.
@@ -189,6 +191,7 @@ static int Lpg_connect (lua_State *L) {
     }
 
 	int ft = Lpg_get_field_types(L, conn);
+	int fc = Lpg_get_field_class(L, conn);
 
     lua_pg_conn *my_conn = (lua_pg_conn *)lua_newuserdata(L, sizeof(lua_pg_conn));
     luaM_setmeta (L, LUA_PGSQL_CONN);
@@ -198,6 +201,7 @@ static int Lpg_connect (lua_State *L) {
     my_conn->env = LUA_NOREF;
     my_conn->conn = conn;
 	my_conn->field_types = ft;
+	my_conn->field_class = fc;
 
 	return 1;
 }
@@ -229,6 +233,45 @@ int Lpg_get_field_types (lua_State *L, PGconn *conn) {
 			}
 
 			if ((tmp_name = PQgetvalue(res, i, name_offset)) == NULL) {
+				continue;
+			}
+
+			luaM_pushvalue(L, tmp_name, strlen(tmp_name));
+			lua_rawseti(L, -2, atoi(tmp_oid));
+		}
+		PQclear(res);
+	}
+
+	return luaL_ref (L, LUA_REGISTRYINDEX);
+}
+
+int Lpg_get_field_class (lua_State *L, PGconn *conn) {
+	PGresult *res;
+
+	lua_newtable (L); /* field types result */
+
+	/* hash all oid's */
+	if ((res = PQexec(conn, "select oid,relname from pg_class")) == NULL || PQresultStatus(res) != PGRES_TUPLES_OK) {
+		if (res) {
+			PQclear(res);
+		}
+	} else {
+
+		int i,num_rows;
+		int oid_offset,class_offset;
+		char *tmp_oid, *tmp_name;
+
+		num_rows = PQntuples(res);
+		oid_offset = PQfnumber(res, "oid");
+		class_offset = PQfnumber(res, "relname");
+
+
+		for ( i = 0; i < num_rows; i++) {
+			if ((tmp_oid = PQgetvalue(res, i, oid_offset)) == NULL) {
+				continue;
+			}
+
+			if ((tmp_name = PQgetvalue(res, i, class_offset)) == NULL) {
 				continue;
 			}
 
@@ -282,9 +325,59 @@ static int Lpg_do_get_field_name (lua_State *L, Oid oid) {
 
 	return 1;
 }
+
 static int Lpg_get_field_name (lua_State *L) {
     lua_Number oid = luaL_optnumber(L, 2, 0);
 	return Lpg_do_get_field_name (L, oid);
+}
+
+static int Lpg_do_get_field_table (lua_State *L, Oid oid) {
+	lua_rawgeti (L, LUA_REGISTRYINDEX, Mget_conn(L)->field_class);
+
+    if ( ! lua_istable(L, -1)) {
+		lua_pushboolean(L, 0);
+		lua_pushstring(L, "get `field_class' info error!");
+		return 2;
+	}
+
+	if ( ! oid) return 1; /* return all field name in a table */
+
+	lua_pushnumber(L, oid);
+	lua_gettable(L, -2); 
+
+	return 1;
+}
+
+static int Lpg_get_field_table (lua_State *L) {
+    lua_Number oid = luaL_optnumber(L, 2, 0);
+	return Lpg_do_get_field_table (L, oid);
+}
+
+static int Lpg_field_table (lua_State *L) {
+	Oid oid;
+
+	lua_pg_res *my_res = Mget_res (L);
+    lua_Number field_number = luaL_optnumber(L, 2, 0);
+    lua_Number is_oid = luaL_optnumber(L, 3, 0);
+
+	if (field_number < 0 || field_number >= PQnfields(my_res->res)) {
+		luaM_msg(L, 0,  "Bad field offset specified");
+		return 2;
+	}
+
+    oid = PQftable(my_res->res, field_number);
+
+    if (InvalidOid == oid) {
+		lua_pushboolean(L, 0);
+		return 1;
+    }
+
+	if (is_oid) {
+		lua_pushnumber(L, oid);
+		return 1;
+	}
+
+	return Lpg_do_get_field_table (L, oid);
 }
 
 static int Lpg_version (lua_State *L) {
@@ -820,6 +913,7 @@ int luaopen_pgsql (lua_State *L) {
     struct luaL_reg result_methods[] = {
         { "field_num",   Lpg_field_num },
         { "field_name",   Lpg_field_name },
+        { "field_table",   Lpg_field_table },
         { "field_size",   Lpg_field_size },
         { "field_type",   Lpg_field_type },
         { "field_type_oid",   Lpg_field_type_oid },
@@ -841,6 +935,7 @@ int luaopen_pgsql (lua_State *L) {
         { "tty",   Lpg_tty },
         { "get_pid",   Lpg_get_pid },
         { "get_field_name",   Lpg_get_field_name },
+        { "get_field_table",   Lpg_get_field_table },
         { "ping",   Lpg_ping },
         { "version",   Lpg_version },
         { "connection_status",   Lpg_connection_status },

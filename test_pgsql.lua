@@ -14,7 +14,8 @@ local db, err = pgsql.connect("host=localhost dbname=test user=postgres")
 print_r(db)
 print_r(err)
 print("---------------")
-local db, err = pgsql.connect("host=localhost dbname=test user=postgresql")
+local db, err = pgsql.connect("host=localhost dbname=test user=postgres")
+--local db, err = pgsql.connect("host=localhost dbname=test user=postgresql")
 print_r(db)
 print_r(err)
 print("++++++++++++++++++++")
@@ -50,21 +51,35 @@ print_r(res:num_rows());
 print_r(res:num_fields());
 print_r(res:affected_rows());
 
+]====]--
 print('---- line -1 -----')
-local t = db:get_field_name()
-print_r(t)
-print_r(t[30])
+local n = db:get_field_name()
+print_r(n)
+print_r(n[30])
 print('---- line -2 -----')
 print_r(db:get_field_name(30))
 print_r(db:get_field_name(18))
-]====]--
 
---[=====[
+print('---- line -2.2 -----')
+local t = db:get_field_table()
+print_r(t)
+print_r(t[16389])
+print('---- line -2.4 -----')
+print_r(db:get_field_table(30))
+print_r(db:get_field_table(16389))
+print_r(db:get_field_table(16389))
+print_r(db:get_field_table(16389))
+print_r(db:get_field_table(16389))
+print_r(db:get_field_table(16389))
+print_r(db:get_field_table(16389))
 print('---- line 1 -----')
 local res = db:query([[SELECT "id","time" FROM "public"."tbl"]])
 print('---- line 1.1 -----')
 print_r(res)
 print('---- line 1.2 -----')
+print_r(res:field_table(0, 1))
+print_r(res:field_table(0))
+--[=====[
 local f = res:fetch_row()
 while f do
 	print_r(f)
