@@ -50,10 +50,15 @@ print_r(res:num_rows());
 print_r(res:num_fields());
 print_r(res:affected_rows());
 
-print('---- line -1 -----')
-print_r(db:get_field_name())
-print_r(db:get_field_name(30))
 ]====]--
+print('---- line -1 -----')
+local t = db:get_field_name()
+print_r(t)
+print_r(t[30])
+print('---- line -2 -----')
+print_r(db:get_field_name(30))
+print_r(db:get_field_name(18))
+--[=====[
 print('---- line 1 -----')
 local res = db:query([[SELECT "id","time" FROM "public"."tbl"]])
 print('---- line 1.1 -----')
@@ -64,7 +69,6 @@ while f do
 	print_r(f)
 	f = res:fetch_row()
 end
---[[
 local f = res:fetch_assoc()
 print_r(res:field_is_null('id'));
 print_r(res:field_prtlen('id'));
@@ -88,3 +92,4 @@ print_r(res)
 print('---- line 2 -----')
 --print_r(db:untrace())
 ]====]--
+]=====]--

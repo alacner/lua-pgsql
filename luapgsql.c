@@ -63,7 +63,7 @@ typedef struct {
 void luaM_setmeta (lua_State *L, const char *name);
 int luaM_register (lua_State *L, const char *name, const luaL_reg *methods);
 int luaopen_pgsql (lua_State *L);
-void Lpg_get_field_types (lua_State *L, lua_pg_conn *my_conn);
+int Lpg_get_field_types (lua_State *L, PGconn *conn);
 
 /**                   
 * Return the name of the object's metatable.
@@ -174,9 +174,6 @@ static lua_pg_res *Mget_res (lua_State *L) {
 * Open a connection to a PgSQL Server
 */
 static int Lpg_connect (lua_State *L) {
-    lua_pg_conn *my_conn = (lua_pg_conn *)lua_newuserdata(L, sizeof(lua_pg_conn));
-    luaM_setmeta (L, LUA_PGSQL_CONN);
-
     const char *conninfo = luaL_optstring(L, 1, "dbname = postgres");
 
 	PGconn *conn = PQconnectdb(conninfo);
@@ -191,62 +188,27 @@ static int Lpg_connect (lua_State *L) {
         return 2;
     }
 
+	int ft = Lpg_get_field_types(L, conn);
+
+    lua_pg_conn *my_conn = (lua_pg_conn *)lua_newuserdata(L, sizeof(lua_pg_conn));
+    luaM_setmeta (L, LUA_PGSQL_CONN);
+
     /* fill in structure */
     my_conn->closed = 0;
     my_conn->env = LUA_NOREF;
     my_conn->conn = conn;
-	my_conn->field_types = LUA_NOREF;
+	my_conn->field_types = ft;
 
-	PGresult *res;
-
-	lua_newtable (L); /* field types result */
-
-	/* hash all oid's */
-	if ((res = PQexec(my_conn->conn, "select oid,typname from pg_type")) == NULL || PQresultStatus(res) != PGRES_TUPLES_OK) {
-		if (res) {
-			PQclear(res);
-		}
-	} else {
-
-		int i,num_rows;
-		int oid_offset,name_offset;
-		char *tmp_oid, *tmp_name;
-
-		num_rows = PQntuples(res);
-		oid_offset = PQfnumber(res, "oid");
-		name_offset = PQfnumber(res, "typname");
-
-
-		for ( i = 0; i < num_rows; i++) {
-			if ((tmp_oid = PQgetvalue(res, i, oid_offset)) == NULL) {
-				continue;
-			}
-
-			if ((tmp_name = PQgetvalue(res, i, name_offset)) == NULL) {
-				continue;
-			}
-
-			luaM_pushvalue(L, tmp_oid, strlen(tmp_oid));
-			luaM_pushvalue(L, tmp_name, strlen(tmp_name));
-			lua_rawset(L, -3);
-		}
-		PQclear(res);
-	}
-
-	//lua_pushvalue (L, 0);
-	my_conn->field_types = luaL_ref (L, LUA_REGISTRYINDEX);
-
-	lua_pushvalue(L, -1);
 	return 1;
 }
 
-void Lpg_get_field_types (lua_State *L, lua_pg_conn *my_conn) {
+int Lpg_get_field_types (lua_State *L, PGconn *conn) {
 	PGresult *res;
 
 	lua_newtable (L); /* field types result */
 
 	/* hash all oid's */
-	if ((res = PQexec(my_conn->conn, "select oid,typname from pg_type")) == NULL || PQresultStatus(res) != PGRES_TUPLES_OK) {
+	if ((res = PQexec(conn, "select oid,typname from pg_type")) == NULL || PQresultStatus(res) != PGRES_TUPLES_OK) {
 		if (res) {
 			PQclear(res);
 		}
@@ -270,15 +232,13 @@ void Lpg_get_field_types (lua_State *L, lua_pg_conn *my_conn) {
 				continue;
 			}
 
-			luaM_pushvalue(L, tmp_oid, strlen(tmp_oid));
 			luaM_pushvalue(L, tmp_name, strlen(tmp_name));
-			lua_rawset(L, -3);
+			lua_rawseti(L, -2, atoi(tmp_oid));
 		}
 		PQclear(res);
 	}
 
-	lua_pushvalue (L, 0);
-	my_conn->field_types = luaL_ref (L, LUA_REGISTRYINDEX);
+	return luaL_ref (L, LUA_REGISTRYINDEX);
 }
 
 static int Lpg_host (lua_State *L) {
@@ -306,11 +266,25 @@ static int Lpg_get_pid (lua_State *L) {
     return 1;
 }
 
+static int Lpg_do_get_field_name (lua_State *L, Oid oid) {
+	lua_rawgeti (L, LUA_REGISTRYINDEX, Mget_conn(L)->field_types);
 
+    if ( ! lua_istable(L, -1)) {
+		lua_pushboolean(L, 0);
+		lua_pushstring(L, "get `field_types' info error!");
+		return 2;
+	}
+
+	if ( ! oid) return 1; /* return all field name in a table */
+
+	lua_pushnumber(L, oid);
+	lua_gettable(L, -2); 
+
+	return 1;
+}
 static int Lpg_get_field_name (lua_State *L) {
     lua_Number oid = luaL_optnumber(L, 2, 0);
-	//return Lpg_do_get_field_name (L, oid);
-	return 1;
+	return Lpg_do_get_field_name (L, oid);
 }
 
 static int Lpg_version (lua_State *L) {
@@ -626,7 +600,7 @@ static int Lpg_get_field_info(lua_State *L, int entry_type) {
         case LUA_PG_FIELD_TYPE:
             oid = PQftype(my_res->res, field_number);
 			lua_pushnumber(L, oid);
-			//return Lpg_do_get_field_name(L, oid);
+			return Lpg_do_get_field_name(L, oid);
             break;
         case LUA_PG_FIELD_TYPE_OID:
             oid = PQftype(my_res->res, field_number);
@@ -814,6 +788,7 @@ static int Lpg_close (lua_State *L) {
 
     my_conn->closed = 1;
     luaL_unref (L, LUA_REGISTRYINDEX, my_conn->env);
+    luaL_unref (L, LUA_REGISTRYINDEX, my_conn->field_types);
     PQfinish (my_conn->conn);
     lua_pushboolean (L, 1);
     return 1;
