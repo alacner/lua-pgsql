@@ -38,6 +38,19 @@
 #define LUA_PGSQL_RES "PgSQL result"
 #define LUA_PGSQL_TABLENAME "pgsql"
 
+#define LUA_PG_DATA_LENGTH 1
+#define LUA_PG_DATA_ISNULL 2
+#define LUA_PG_DATA_RESULT 3
+
+#define LUA_PG_FIELD_NAME 1
+#define LUA_PG_FIELD_SIZE 2
+#define LUA_PG_FIELD_TYPE 3
+#define LUA_PG_FIELD_TYPE_OID 4
+
+#define PGSQL_ASSOC     1<<0
+#define PGSQL_NUM       1<<1
+#define PGSQL_BOTH      (PGSQL_ASSOC|PGSQL_NUM)
+
 #define safe_emalloc(nmemb, size, offset)  malloc((nmemb) * (size) + (offset)) 
 
 typedef struct {
@@ -66,6 +79,76 @@ int luaM_register (lua_State *L, const char *name, const luaL_reg *methods);
 int luaopen_pgsql (lua_State *L);
 int Lpg_get_field_types_hash (lua_State *L, PGconn *conn);
 int Lpg_get_field_class_hash (lua_State *L, PGconn *conn);
+void luaM_regconst(lua_State *L, const char *name, long value);
+
+/* set const */
+static int luaM_const (lua_State *L, const char *defined) {
+
+	lua_newtable(L);
+    /* For pg_fetch_array() */
+	luaM_regconst(L, "PGSQL_ASSOC", PGSQL_ASSOC);
+	luaM_regconst(L, "PGSQL_NUM", PGSQL_NUM);
+	luaM_regconst(L, "PGSQL_BOTH", PGSQL_BOTH);
+    /* For pg_connection_status() */
+	luaM_regconst(L, "PGSQL_CONNECTION_BAD", CONNECTION_BAD);
+	luaM_regconst(L, "PGSQL_CONNECTION_OK", CONNECTION_OK);
+    /* For pg_transaction_status() */
+	luaM_regconst(L, "PGSQL_TRANSACTION_IDLE", PQTRANS_IDLE);
+	luaM_regconst(L, "PGSQL_TRANSACTION_ACTIVE", PQTRANS_ACTIVE);
+	luaM_regconst(L, "PGSQL_TRANSACTION_INTRANS", PQTRANS_INTRANS);
+	luaM_regconst(L, "PGSQL_TRANSACTION_INERROR", PQTRANS_INERROR);
+	luaM_regconst(L, "PGSQL_TRANSACTION_UNKNOWN", PQTRANS_UNKNOWN);
+    /* For pg_set_error_verbosity() */
+	luaM_regconst(L, "PGSQL_ERRORS_TERSE", PQERRORS_TERSE);
+	luaM_regconst(L, "PGSQL_ERRORS_DEFAULT", PQERRORS_DEFAULT);
+	luaM_regconst(L, "PGSQL_ERRORS_VERBOSE", PQERRORS_VERBOSE);
+    /* For lo_seek() */
+	luaM_regconst(L, "PGSQL_SEEK_SET", SEEK_SET);
+	luaM_regconst(L, "PGSQL_SEEK_CUR", SEEK_CUR);
+	luaM_regconst(L, "PGSQL_SEEK_END", SEEK_END);
+    /* For pg_result_status() return value type */
+	//luaM_regconst(L, "PGSQL_STATUS_LONG", PGSQL_STATUS_LONG);
+	//luaM_regconst(L, "PGSQL_STATUS_STRING", PGSQL_STATUS_STRING);
+    /* For pg_result_status() return value */
+	luaM_regconst(L, "PGSQL_EMPTY_QUERY", PGRES_EMPTY_QUERY);
+	luaM_regconst(L, "PGSQL_COMMAND_OK", PGRES_COMMAND_OK);
+	luaM_regconst(L, "PGSQL_TUPLES_OK", PGRES_TUPLES_OK);
+	luaM_regconst(L, "PGSQL_COPY_OUT", PGRES_COPY_OUT);
+	luaM_regconst(L, "PGSQL_COPY_IN", PGRES_COPY_IN);
+	luaM_regconst(L, "PGSQL_BAD_RESPONSE", PGRES_BAD_RESPONSE);
+	luaM_regconst(L, "PGSQL_NONFATAL_ERROR", PGRES_NONFATAL_ERROR);
+	luaM_regconst(L, "PGSQL_FATAL_ERROR", PGRES_FATAL_ERROR);
+    /* For pg_result_error_field() field codes */
+	luaM_regconst(L, "PGSQL_DIAG_SEVERITY", PG_DIAG_SEVERITY);
+	luaM_regconst(L, "PGSQL_DIAG_SQLSTATE", PG_DIAG_SQLSTATE);
+	luaM_regconst(L, "PGSQL_DIAG_MESSAGE_PRIMARY", PG_DIAG_MESSAGE_PRIMARY);
+	luaM_regconst(L, "PGSQL_DIAG_MESSAGE_DETAIL", PG_DIAG_MESSAGE_DETAIL);
+	luaM_regconst(L, "PGSQL_DIAG_MESSAGE_HINT", PG_DIAG_MESSAGE_HINT);
+	luaM_regconst(L, "PGSQL_DIAG_STATEMENT_POSITION", PG_DIAG_STATEMENT_POSITION);
+	luaM_regconst(L, "PGSQL_DIAG_INTERNAL_POSITION", PG_DIAG_INTERNAL_POSITION);
+	luaM_regconst(L, "PGSQL_DIAG_INTERNAL_QUERY", PG_DIAG_INTERNAL_QUERY);
+	luaM_regconst(L, "PGSQL_DIAG_CONTEXT", PG_DIAG_CONTEXT);
+	luaM_regconst(L, "PGSQL_DIAG_SOURCE_FILE", PG_DIAG_SOURCE_FILE);
+	luaM_regconst(L, "PGSQL_DIAG_SOURCE_LINE", PG_DIAG_SOURCE_LINE);
+	luaM_regconst(L, "PGSQL_DIAG_SOURCE_FUNCTION", PG_DIAG_SOURCE_FUNCTION);
+    /* pg_convert options */
+	//luaM_regconst(L, "PGSQL_CONV_IGNORE_DEFAULT", PGSQL_CONV_IGNORE_DEFAULT);
+	//luaM_regconst(L, "PGSQL_CONV_FORCE_NULL", PGSQL_CONV_FORCE_NULL);
+	//luaM_regconst(L, "PGSQL_CONV_IGNORE_NOT_NULL", PGSQL_CONV_IGNORE_NOT_NULL);
+    /* pg_insert/update/delete/select options */
+	//luaM_regconst(L, "PGSQL_DML_NO_CONV", PGSQL_DML_NO_CONV);
+	//luaM_regconst(L, "PGSQL_DML_EXEC", PGSQL_DML_EXEC);
+	//luaM_regconst(L, "PGSQL_DML_ASYNC", PGSQL_DML_ASYNC);
+	//luaM_regconst(L, "PGSQL_DML_STRING", PGSQL_DML_STRING);
+
+	lua_pushstring(L, defined);	
+	lua_gettable(L, -2); 
+	
+	int ct = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	return ct;
+}
 
 /**                   
 * Return the name of the object's metatable.
@@ -81,6 +164,12 @@ static int luaM_tostring (lua_State *L) {
     lua_pushfstring (L, "%s (%s)", lua_tostring(L,lua_upvalueindex(1)), buff);
     return 1;                            
 }       
+
+void luaM_regconst(lua_State *L, const char *name, long value) {
+	lua_pushstring(L, name);
+	lua_pushnumber(L, value);
+	lua_rawset(L, -3);
+}
 
 /**
 * Define the metatable for the object on top of the stack
@@ -488,30 +577,8 @@ static int Lpg_last_error (lua_State *L) {
 }
 
 static int Lpg_set_error_verbosity (lua_State *L) {
-    lua_pg_conn *my_conn = Mget_conn (L);
-	int pgv = 0;
-	int is_val = 0;
-    const char *val = luaL_optstring(L, 2, NULL);
-
-    if ( ! strcasecmp(val, "PGSQL_ERRORS_TERSE")) {
-		pgv = PQERRORS_TERSE;
-		is_val = 1;
-	}
-    else if ( ! strcasecmp(val, "PGSQL_ERRORS_DEFAULT")) {
-		pgv = PQERRORS_DEFAULT;
-		is_val = 1;
-	}
-    else if ( ! strcasecmp(val, "PGSQL_ERRORS_VERBOSE")) {
-		pgv = PQERRORS_VERBOSE;
-		is_val = 1;
-	}
-
-	if (is_val) {
-		lua_pushnumber(L, PQsetErrorVerbosity(my_conn->conn, pgv));
-	} else {
-		lua_pushboolean(L, 0);
-	}
-
+    const char *result_type = luaL_optstring (L, 2, "PQERRORS_DEFAULT");
+	lua_pushnumber(L, PQsetErrorVerbosity(Mget_conn (L)->conn, luaM_const(L, result_type)));
     return 1;
 }
 
@@ -716,11 +783,6 @@ static int Lpg_field_num (lua_State *L) {
     return 1;
 }
 
-#define LUA_PG_FIELD_NAME 1
-#define LUA_PG_FIELD_SIZE 2
-#define LUA_PG_FIELD_TYPE 3
-#define LUA_PG_FIELD_TYPE_OID 4
-
 static int Lpg_get_field_info(lua_State *L, int entry_type) {
 	Oid oid;
 	char *fname;
@@ -790,10 +852,6 @@ static int Lpg_affected_rows (lua_State *L) {
     return 1;
 }
 
-#define LUA_PG_DATA_LENGTH 1
-#define LUA_PG_DATA_ISNULL 2
-#define LUA_PG_DATA_RESULT 3
-
 static int Lpg_data_info (lua_State *L, int entry_type) {
 	int field_offset, pgsql_row;
 
@@ -853,10 +911,6 @@ static int Lpg_field_is_null (lua_State *L) {
 static int Lpg_field_prtlen(lua_State *L) {
 	return Lpg_data_info(L, LUA_PG_DATA_LENGTH);
 }
-
-#define PGSQL_ASSOC     1<<0
-#define PGSQL_NUM       1<<1
-#define PGSQL_BOTH      (PGSQL_ASSOC|PGSQL_NUM)
 
 static int Lpg_do_fetch(lua_State *L, int result_type) {
 	int	i, num_fields;
@@ -922,16 +976,7 @@ static int Lpg_fetch_assoc (lua_State *L) {
 
 static int Lpg_fetch_array (lua_State *L) {
     const char *result_type = luaL_optstring (L, 2, "PGSQL_BOTH");
-
-    if ( ! strcasecmp(result_type, "PGSQL_NUM")) {
-        return Lpg_do_fetch(L, PGSQL_NUM);
-    }
-    else if ( ! strcasecmp(result_type, "PGSQL_ASSOC")) {
-        return Lpg_do_fetch(L, PGSQL_ASSOC);
-    }
-    else {
-        return Lpg_do_fetch(L, PGSQL_BOTH);
-    }
+    return Lpg_do_fetch(L, luaM_const(L, result_type));
 }
 
 static int Lpg_fetch_result (lua_State *L) {
@@ -1003,6 +1048,11 @@ static int Lpg_last_oid (lua_State *L) {
     return 1;
 }
 
+static int Lpg_result_error (lua_State *L) {
+	lua_pushstring(L, (char *)PQresultErrorMessage(Mget_res (L)->res));
+    return 1;
+}
+
 /**
 * Close PgSQL connection
 */
@@ -1033,7 +1083,6 @@ static int Lversion (lua_State *L) {
     lua_concat (L, 3);
     return 1;
 }
-
 /**
 * Creates the metatables for the objects and registers the
 * driver open method.
@@ -1060,6 +1109,7 @@ int luaopen_pgsql (lua_State *L) {
         { "fetch_result",   Lpg_fetch_result },
         { "fetch_all",   Lpg_fetch_all },
         { "last_oid",   Lpg_last_oid },
+        { "result_error",   Lpg_result_error },
         { "num_fields",   Lpg_num_fields },
         { "num_rows",   Lpg_num_rows },
         { "affected_rows",   Lpg_affected_rows },

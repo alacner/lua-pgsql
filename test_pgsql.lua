@@ -19,6 +19,7 @@ local db, err = pgsql.connect("host=localhost dbname=test user=postgresql")
 print_r(db)
 print_r(err)
 print("++++++++++++++++++++")
+--print("++++++++++++++++++++")
 --[====[
 local eba = db:escape_bytea("INSERT INTO test_table (image) VALUES ('$image_escaped'::bytea);")
 print_r(eba)
@@ -59,6 +60,7 @@ print('---- line -2 -----')
 print_r(db:get_field_name(30))
 print_r(db:get_field_name(18))
 
+print_r(db:set_error_verbosity("PGSQL_ERRORS_VERBOSE"));
 ]====]--
 local res = db:query([[INSERT INTO "public"."tbl" ("time") VALUES (NULL) ]])
 print_r(res)
@@ -72,6 +74,8 @@ print('---- line -2.4 -----')
 print_r(db:get_field_table(16387))
 print('---- line 1 -----')
 local res = db:query([[SELECT "id","time" FROM "public"."tbl"]])
+print_r(res:result_error());
+--[=====[
 print('---- line 1.1 -----')
 print_r(res)
 print('---- line 1.2 -----')
@@ -79,23 +83,24 @@ print('---- line 1.2 -----')
 --print_r(res:fetch_result(1, 0));
 print_r(res:fetch_all());
 print_r(res:last_oid());
-print_r(db:set_error_verbosity("PGSQL_ERRORS_VERBOSE"));
---[=====[
 print_r(res:field_table(0, 1))
 local m, n = res:field_table(0)
 print_r(m)
 print_r(n)
+--]=====]
 local f = res:fetch_row()
 --local f = res:fetch_assoc()
 while f do
 	print_r(f)
-local p = res:field_table(0)
-print_r(p)
+	local p = res:field_table(0)
+	print_r(p)
 --print_r(db:get_field_table(p))
 --print_r(db:get_field_table(p, 1))
-	f = res:fetch_assoc()
+	f = res:fetch_array("PGSQL_NUM");
+	--f = res:fetch_assoc()
 	--f = res:fetch_row()
 end
+--[=====[
 local f = res:fetch_assoc()
 print_r(res:field_is_null('id'));
 print_r(res:field_prtlen('id'));
