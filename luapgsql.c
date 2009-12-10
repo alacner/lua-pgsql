@@ -764,6 +764,7 @@ static int Lpg_affected_rows (lua_State *L) {
 
 #define LUA_PG_DATA_LENGTH 1
 #define LUA_PG_DATA_ISNULL 2
+#define LUA_PG_DATA_RESULT 3
 
 static int Lpg_data_info (lua_State *L, int entry_type) {
 	int field_offset, pgsql_row;
@@ -803,7 +804,17 @@ static int Lpg_data_info (lua_State *L, int entry_type) {
         case LUA_PG_DATA_ISNULL:
             lua_pushnumber(L, PQgetisnull(my_res->res, pgsql_row, field_offset));
             break;
+        case LUA_PG_DATA_RESULT:
+			if (PQgetisnull(my_res->res, pgsql_row, field_offset)) {
+				lua_pushnil(L);
+			} else {
+				char *value = PQgetvalue(my_res->res, pgsql_row, field_offset);
+				int value_len = PQgetlength(my_res->res, pgsql_row, field_offset);
+				luaM_pushvalue(L, value, value_len);
+			}
+			break;
     }
+
     return 1;
 }
 
@@ -896,45 +907,7 @@ static int Lpg_fetch_array (lua_State *L) {
 }
 
 static int Lpg_fetch_result (lua_State *L) {
-	int field_offset, pgsql_row;
-
-	lua_pg_res *my_res = Mget_res (L);
-    const char *row = luaL_optstring(L, 2, 0);
-    const char *field = luaL_optstring(L, 3, NULL);
-	
-	if (field == NULL) {
-		pgsql_row = my_res->row;
-		field = row;
-	} else {
-		pgsql_row = atoi(row);
-	}
-
-	if (pgsql_row >= PQntuples(my_res->res)) {
-		lua_pushfstring(L, "Unable to jump to row %d on PostgreSQL!", pgsql_row);
-		return 1;
-	}
-
-	lua_pushstring(L, field);
-	if (lua_isnumber(L, -1)) {
-		field_offset = atoi(field);
-	} else {
-		field_offset = PQfnumber(my_res->res, field);
-	}
-	
-	if (field_offset < 0 || field_offset >= PQnfields(my_res->res)) {
-		lua_pushstring(L, "Bad column offset specified");
-		return 1;
-	}
-
-    if (PQgetisnull(my_res->res, pgsql_row, field_offset)) {
-		lua_pushnil(L);
-    } else {
-        char *value = PQgetvalue(my_res->res, pgsql_row, field_offset);
-        int value_len = PQgetlength(my_res->res, pgsql_row, field_offset);
-		luaM_pushvalue(L, value, value_len);
-    }
-
-    return 1;
+	return Lpg_data_info(L, LUA_PG_DATA_RESULT);
 }
 
 /**
