@@ -75,8 +75,11 @@ local res = db:query([[SELECT "id","time" FROM "public"."tbl"]])
 print('---- line 1.1 -----')
 print_r(res)
 print('---- line 1.2 -----')
-print_r(res:fetch_result(10, 0));
-print_r(res:fetch_result(1, 0));
+--print_r(res:fetch_result(10, 0));
+--print_r(res:fetch_result(1, 0));
+print_r(res:fetch_all());
+print_r(res:last_oid());
+print_r(db:set_error_verbosity("PGSQL_ERRORS_VERBOSE"));
 --[=====[
 print_r(res:field_table(0, 1))
 local m, n = res:field_table(0)

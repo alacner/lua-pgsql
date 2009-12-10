@@ -487,6 +487,34 @@ static int Lpg_last_error (lua_State *L) {
     return 1;
 }
 
+static int Lpg_set_error_verbosity (lua_State *L) {
+    lua_pg_conn *my_conn = Mget_conn (L);
+	int pgv = 0;
+	int is_val = 0;
+    const char *val = luaL_optstring(L, 2, NULL);
+
+    if ( ! strcasecmp(val, "PGSQL_ERRORS_TERSE")) {
+		pgv = PQERRORS_TERSE;
+		is_val = 1;
+	}
+    else if ( ! strcasecmp(val, "PGSQL_ERRORS_DEFAULT")) {
+		pgv = PQERRORS_DEFAULT;
+		is_val = 1;
+	}
+    else if ( ! strcasecmp(val, "PGSQL_ERRORS_VERBOSE")) {
+		pgv = PQERRORS_VERBOSE;
+		is_val = 1;
+	}
+
+	if (is_val) {
+		lua_pushnumber(L, PQsetErrorVerbosity(my_conn->conn, pgv));
+	} else {
+		lua_pushboolean(L, 0);
+	}
+
+    return 1;
+}
+
 static int Lpg_escape_bytea (lua_State *L) {
 	size_t to_len;
 	unsigned char *to; 
@@ -910,6 +938,71 @@ static int Lpg_fetch_result (lua_State *L) {
 	return Lpg_data_info(L, LUA_PG_DATA_RESULT);
 }
 
+static int Lpg_do_fetch_all (lua_State *L, lua_pg_res *my_res) {
+
+    char *field_name, *element;
+    size_t num_fields, element_len;
+    int pg_numrows, pg_row;
+    uint i;
+
+	//lua_pg_res *my_res = Mget_res (L);
+
+    if ((pg_numrows = PQntuples(my_res->res)) <= 0) {
+		lua_pushboolean(L, 0);
+		return 1;
+    }
+
+
+	lua_newtable(L); /* result */
+
+    for (pg_row = 0; pg_row < pg_numrows; pg_row++) {
+		
+		lua_newtable(L); /* row result */
+
+        for (i = 0, num_fields = PQnfields(my_res->res); i < num_fields; i++) {
+
+            if (PQgetisnull(my_res->res, pg_row, i)) {
+                field_name = PQfname(my_res->res, i);
+				lua_pushstring(L, field_name);
+				lua_pushstring (L, "");
+				lua_rawset (L, -3);
+            } else {
+
+                element = PQgetvalue(my_res->res, pg_row, i);
+				element_len = (element ? strlen(element) : 0);
+
+				if (element) {
+					field_name = PQfname(my_res->res, i);
+					lua_pushstring(L, field_name);
+					luaM_pushvalue(L, element, element_len);
+					lua_rawset (L, -3);
+				}
+            }
+        }
+		lua_rawseti (L, -2, pg_row);
+    }
+
+	return 1;
+}
+
+static int Lpg_fetch_all (lua_State *L) {
+	lua_pg_res *my_res = Mget_res (L);
+	return Lpg_do_fetch_all(L, my_res);
+}
+
+static int Lpg_last_oid (lua_State *L) {
+	Oid oid;
+
+    lua_pg_res *my_res = Mget_res (L);
+
+    oid = PQoidValue(my_res->res); // = (char *) PQoidStatus(my_res->res);
+    if (oid == InvalidOid) {
+		lua_pushboolean(L, 0);
+    }
+    lua_pushnumber(L, oid);
+    return 1;
+}
+
 /**
 * Close PgSQL connection
 */
@@ -965,6 +1058,8 @@ int luaopen_pgsql (lua_State *L) {
         { "fetch_assoc",   Lpg_fetch_assoc },
         { "fetch_array",   Lpg_fetch_array },
         { "fetch_result",   Lpg_fetch_result },
+        { "fetch_all",   Lpg_fetch_all },
+        { "last_oid",   Lpg_last_oid },
         { "num_fields",   Lpg_num_fields },
         { "num_rows",   Lpg_num_rows },
         { "affected_rows",   Lpg_affected_rows },
@@ -996,6 +1091,7 @@ int luaopen_pgsql (lua_State *L) {
         { "untrace", Lpg_untrace},
         { "client_encoding", Lpg_client_encoding},
         { "set_client_encoding", Lpg_set_client_encoding},
+        { "set_error_verbosity", Lpg_set_error_verbosity},
         { "query",   Lpg_query },
         { "close",   Lpg_close },
         { NULL, NULL }
