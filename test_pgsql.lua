@@ -101,6 +101,10 @@ while f do
 	--f = res:fetch_assoc()
 	--f = res:fetch_row()
 end
+print_r('==============')
+print_r(res:result_status("PGSQL_STATUS_STRING"))
+print_r('==============')
+--[=====[
 print_r(db:end_copy())
 
 db:query("create table bar (a int4, b char(16), d float8)")
@@ -127,8 +131,8 @@ local a,b,c = db:meta_data('tbl')
 print_r(a)
 print_r(b)
 print('--------------------------------');
+
 --print_r(_G);
---[=====[
 local f = res:fetch_assoc()
 print_r(res:field_is_null('id'));
 print_r(res:field_prtlen('id'));

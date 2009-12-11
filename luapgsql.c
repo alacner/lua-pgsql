@@ -47,9 +47,19 @@
 #define LUA_PG_FIELD_TYPE 3
 #define LUA_PG_FIELD_TYPE_OID 4
 
+#ifndef InvalidOid
+#define InvalidOid ((Oid) 0)
+#endif
+
 #define PGSQL_ASSOC     1<<0
 #define PGSQL_NUM       1<<1
 #define PGSQL_BOTH      (PGSQL_ASSOC|PGSQL_NUM)
+
+#define PGSQL_STATUS_LONG     1
+#define PGSQL_STATUS_STRING   2
+
+#define PGSQL_MAX_LENGTH_OF_LONG   30
+#define PGSQL_MAX_LENGTH_OF_DOUBLE 60
 
 #define safe_emalloc(nmemb, size, offset)  malloc((nmemb) * (size) + (offset)) 
 
@@ -107,8 +117,8 @@ static int luaM_const (lua_State *L, const char *defined) {
 	luaM_regconst(L, "PGSQL_SEEK_CUR", SEEK_CUR);
 	luaM_regconst(L, "PGSQL_SEEK_END", SEEK_END);
     /* For pg_result_status() return value type */
-	//luaM_regconst(L, "PGSQL_STATUS_LONG", PGSQL_STATUS_LONG);
-	//luaM_regconst(L, "PGSQL_STATUS_STRING", PGSQL_STATUS_STRING);
+	luaM_regconst(L, "PGSQL_STATUS_LONG", PGSQL_STATUS_LONG);
+	luaM_regconst(L, "PGSQL_STATUS_STRING", PGSQL_STATUS_STRING);
     /* For pg_result_status() return value */
 	luaM_regconst(L, "PGSQL_EMPTY_QUERY", PGRES_EMPTY_QUERY);
 	luaM_regconst(L, "PGSQL_COMMAND_OK", PGRES_COMMAND_OK);
@@ -1318,6 +1328,47 @@ static int Lpg_result_error (lua_State *L) {
     return 1;
 }
 
+static int Lpg_result_seek (lua_State *L) {
+	lua_pg_res *my_res = Mget_res (L);
+
+    lua_Number row = luaL_optnumber(L, 2, -1);
+
+
+    if (row < 0 || row >= PQntuples(my_res->res)) {
+		lua_pushboolean(L, 0);
+		return 1;
+    }
+
+    /* seek to offset */
+    my_res->row = row;
+
+	lua_pushboolean(L, 1);
+	return 1;
+}
+
+static int Lpg_result_status (lua_State *L) {
+	lua_pg_res *my_res = Mget_res (L);
+
+    const char *result_type_str = luaL_optstring(L, 2, "PGSQL_STATUS_LONG");
+
+    long result_type = luaM_const(L, result_type_str);
+    ExecStatusType status;
+
+    if (result_type == PGSQL_STATUS_LONG) {
+        status = PQresultStatus(my_res->res);
+		lua_pushnumber(L, status);
+		return 1;
+    }
+    else if (result_type == PGSQL_STATUS_STRING) {
+		lua_pushstring(L, PQcmdStatus(my_res->res));
+		return 1;
+    }
+    else {
+        lua_pushfstring(L, "Optional 1th parameter should be PGSQL_STATUS_LONG or PGSQL_STATUS_STRING");
+		return 1;
+    }
+}
+
 /**
 * Close PgSQL connection
 */
@@ -1375,6 +1426,8 @@ int luaopen_pgsql (lua_State *L) {
         { "fetch_all",   Lpg_fetch_all },
         { "last_oid",   Lpg_last_oid },
         { "result_error",   Lpg_result_error },
+        { "result_seek",   Lpg_result_seek },
+        { "result_status",   Lpg_result_status },
         { "num_fields",   Lpg_num_fields },
         { "num_rows",   Lpg_num_rows },
         { "affected_rows",   Lpg_affected_rows },
