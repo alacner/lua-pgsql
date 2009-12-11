@@ -1369,6 +1369,35 @@ static int Lpg_result_status (lua_State *L) {
     }
 }
 
+static int Lpg_result_error_field (lua_State *L) {
+    char *field = NULL;
+	lua_pg_res *my_res = Mget_res (L);
+
+    long fieldcode = luaL_optnumber(L, 2, -1);
+
+    if ( ! my_res->res) {
+		lua_pushboolean(L, 0);
+		return 1;
+    }
+
+    if (fieldcode & (PG_DIAG_SEVERITY|PG_DIAG_SQLSTATE|PG_DIAG_MESSAGE_PRIMARY|PG_DIAG_MESSAGE_DETAIL
+                |PG_DIAG_MESSAGE_HINT|PG_DIAG_STATEMENT_POSITION
+                |PG_DIAG_INTERNAL_POSITION
+                |PG_DIAG_INTERNAL_QUERY
+                |PG_DIAG_CONTEXT|PG_DIAG_SOURCE_FILE|PG_DIAG_SOURCE_LINE
+                |PG_DIAG_SOURCE_FUNCTION)) {
+        field = (char *)PQresultErrorField(my_res->res, fieldcode);
+        if (field == NULL) {
+			lua_pushnil(L);
+        } else {
+            lua_pushstring(L, field);
+        }
+    } else {
+		lua_pushboolean(L, 0);
+    }
+	return 1;
+}
+
 /**
 * Close PgSQL connection
 */
@@ -1428,6 +1457,7 @@ int luaopen_pgsql (lua_State *L) {
         { "result_error",   Lpg_result_error },
         { "result_seek",   Lpg_result_seek },
         { "result_status",   Lpg_result_status },
+        { "result_error_field",   Lpg_result_error_field },
         { "num_fields",   Lpg_num_fields },
         { "num_rows",   Lpg_num_rows },
         { "affected_rows",   Lpg_affected_rows },

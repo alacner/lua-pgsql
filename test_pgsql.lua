@@ -104,6 +104,8 @@ end
 print_r('==============')
 print_r(res:result_status("PGSQL_STATUS_STRING"))
 print_r('==============')
+print_r(res:result_error_field())
+print_r('==============')
 --[=====[
 print_r(db:end_copy())
 
