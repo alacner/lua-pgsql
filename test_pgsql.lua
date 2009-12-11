@@ -64,17 +64,18 @@ print_r(db:set_error_verbosity("PGSQL_ERRORS_VERBOSE"));
 ]====]--
 local res = db:query([[INSERT INTO "public"."tbl" ("time") VALUES (NULL) ]])
 print_r(res)
-print_r(res:num_rows());
-print_r(res:num_fields());
-print_r(res:affected_rows());
+print_r(res:num_rows())
+print_r(res:num_fields())
+print_r(res:affected_rows())
 print('---- line -2.2 -----')
 local t = db:get_field_table()
 print_r(t)
 print('---- line -2.4 -----')
 print_r(db:get_field_table(16387))
 print('---- line 1 -----')
-local res = db:query([[SELECT "id","time" FROM "public"."tbl"]])
-print_r(res:result_error());
+db:send_query([[SELECT "id","time" FROM "public"."tbl"]])
+local res = db:get_result()
+print_r(res:result_error())
 --[=====[
 print('---- line 1.1 -----')
 print_r(res)

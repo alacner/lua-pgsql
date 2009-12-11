@@ -776,6 +776,48 @@ static int Lpg_query (lua_State *L) {
     }
 }
 
+
+static int Lpg_send_query (lua_State *L) {
+	int leftover = 0;
+	PGresult *res;
+
+    lua_pg_conn *my_conn = Mget_conn (L);
+	const char *statement = luaL_checkstring (L, 2);
+
+	if (PQsetnonblocking(my_conn->conn, 1)) {
+		lua_pushstring(L, "Cannot set connection to blocking mode");
+		return 1;
+	}
+
+    while ((res = PQgetResult(my_conn->conn))) {
+        PQclear(res);
+        leftover = 1;
+    }
+
+    if (leftover) {
+        lua_pushstring(L, "Found results on this connection. Use db:get_result() to get these results FALSE");
+		return 1;
+    }
+
+    if ( ! PQsendQuery(my_conn->conn, statement)) {
+        if (PQstatus(my_conn->conn) != CONNECTION_OK) {
+            PQreset(my_conn->conn);
+        }
+        if ( ! PQsendQuery(my_conn->conn, statement)) {
+			lua_pushboolean(L, 0);
+			return 0;
+        }
+    }
+
+	if (PQsetnonblocking(my_conn->conn, 0)) {
+		lua_pushstring(L, "Cannot set connection to blocking mode");
+		return 1;
+	}
+
+	lua_pushboolean(L, 1);
+	return 1;
+}
+
 static int Lpg_field_num (lua_State *L) {
 	lua_pg_res *my_res = Mget_res (L);
     const char *field_name = luaL_optstring(L, 2, NULL);
@@ -983,6 +1025,38 @@ static int Lpg_fetch_result (lua_State *L) {
 	return Lpg_data_info(L, LUA_PG_DATA_RESULT);
 }
 
+
+static int Lpg_get_result (lua_State *L) {
+    PGresult *res;
+
+    lua_pg_conn *my_conn = Mget_conn (L);
+
+    res = PQgetResult(my_conn->conn);
+    if ( ! res) {
+        /* no result */
+		lua_pushboolean(L, 0);
+		return 1;
+    }
+
+	lua_pg_res *my_res = (lua_pg_res *)lua_newuserdata(L, sizeof(lua_pg_res));
+	luaM_setmeta (L, LUA_PGSQL_RES);
+
+	/* fill in structure */
+	my_res->closed = 0;
+	my_res->row = 0;
+	my_res->conn = LUA_NOREF;
+	my_res->numcols = PQnfields(res);
+	my_res->colnames = LUA_NOREF;
+	my_res->coltypes = LUA_NOREF;
+	my_res->res = res;
+
+	lua_pushvalue(L, 1);
+
+	my_res->conn = luaL_ref (L, LUA_REGISTRYINDEX);
+
+	return 1;
+}
+
 static int Lpg_do_fetch_all (lua_State *L, lua_pg_res *my_res) {
 
     char *field_name, *element;
@@ -1143,6 +1217,8 @@ int luaopen_pgsql (lua_State *L) {
         { "set_client_encoding", Lpg_set_client_encoding},
         { "set_error_verbosity", Lpg_set_error_verbosity},
         { "query",   Lpg_query },
+        { "send_query",   Lpg_send_query },
+        { "get_result",   Lpg_get_result },
         { "close",   Lpg_close },
         { NULL, NULL }
     };
