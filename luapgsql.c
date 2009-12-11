@@ -571,6 +571,48 @@ static int Lpg_ping (lua_State *L) {
 	return 1;
 }
 
+static int Lpg_get_notify (lua_State *L) {
+	long result_type = PGSQL_ASSOC;
+    PGnotify *pgsql_notify;
+
+    lua_pg_conn *my_conn = Mget_conn (L);
+
+    const char *result_type_str = luaL_optstring (L, 2, "PGSQL_ASSOC");
+	result_type = luaM_const(L, result_type_str);
+    if ( ! (result_type & PGSQL_BOTH)) {
+        lua_pushstring(L, "Invalid result type");
+		return 1;
+    }
+
+    PQconsumeInput(my_conn->conn);
+    pgsql_notify = PQnotifies(my_conn->conn);
+    if ( ! pgsql_notify) {
+        /* no notify message */
+		lua_pushboolean(L, 0);
+		return 1;
+    }
+
+	lua_newtable(L);
+
+    if (result_type & PGSQL_NUM) {
+		lua_pushstring(L, pgsql_notify->relname);
+		lua_rawseti(L, -2, 0);
+		lua_pushnumber(L, pgsql_notify->be_pid);
+		lua_rawseti(L, -2, 1);
+    }
+    if (result_type & PGSQL_ASSOC) {
+		lua_pushstring(L, "message");
+		lua_pushstring(L, pgsql_notify->relname);
+		lua_rawset(L, -3);
+		lua_pushstring(L, "pid");
+		lua_pushnumber(L, pgsql_notify->be_pid);
+		lua_rawset(L, -3);
+    }
+    PQfreemem(pgsql_notify);
+
+	return 1;
+}
+
 static int Lpg_last_error (lua_State *L) {
     lua_pushstring(L, PQerrorMessage(Mget_conn(L)->conn));
     return 1;
@@ -776,7 +818,6 @@ static int Lpg_query (lua_State *L) {
     }
 }
 
-
 static int Lpg_send_query (lua_State *L) {
 	int leftover = 0;
 	PGresult *res;
@@ -814,6 +855,39 @@ static int Lpg_send_query (lua_State *L) {
 		return 1;
 	}
 
+	lua_pushboolean(L, 1);
+	return 1;
+}
+
+static int Lpg_put_line (lua_State *L) {
+    int result = 0;
+    lua_pg_conn *my_conn = Mget_conn (L);
+
+	const char *statement = luaL_checkstring (L, 2);
+
+
+    result = PQputline(my_conn->conn, statement);
+    if (result == EOF) {
+        lua_pushfstring(L, "Query failed: %s", PQerrorMessage(my_conn->conn));
+		return 1;
+    }
+
+	lua_pushboolean(L, 1);
+	return 1;
+}
+
+static int Lpg_end_copy (lua_State *L) {
+	int result = 0;
+
+    lua_pg_conn *my_conn = Mget_conn (L);
+
+    result = PQendcopy(my_conn->conn);
+
+    if (result != 0) {
+        lua_pushfstring(L, "Query failed: %s", PQerrorMessage(my_conn->conn));
+		return 1;
+    }
+	
 	lua_pushboolean(L, 1);
 	return 1;
 }
@@ -1219,6 +1293,9 @@ int luaopen_pgsql (lua_State *L) {
         { "query",   Lpg_query },
         { "send_query",   Lpg_send_query },
         { "get_result",   Lpg_get_result },
+        { "put_line",   Lpg_put_line },
+        { "get_notify",   Lpg_get_notify },
+        { "end_copy",   Lpg_end_copy },
         { "close",   Lpg_close },
         { NULL, NULL }
     };

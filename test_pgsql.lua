@@ -97,10 +97,23 @@ while f do
 	print_r(p)
 --print_r(db:get_field_table(p))
 --print_r(db:get_field_table(p, 1))
-	f = res:fetch_array("PGSQL_NUM");
+	f = res:fetch_array("PGSQL_NUM")
 	--f = res:fetch_assoc()
 	--f = res:fetch_row()
 end
+print_r(db:end_copy())
+
+db:query("create table bar (a int4, b char(16), d float8)")
+db:query("copy bar from stdin")
+db:put_line("3\thello world\t4.5\n")
+db:put_line("4\tgoodbye world\t7.11\n")
+db:put_line("\\.\n")
+db:end_copy()
+
+
+db:query("LISTEN author_updated;")
+local notify = db:get_notify("PGSQL_BOTH")
+print_r(notify)
 --[=====[
 local f = res:fetch_assoc()
 print_r(res:field_is_null('id'));
