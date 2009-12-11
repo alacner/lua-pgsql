@@ -14,8 +14,8 @@ local db, err = pgsql.connect("host=localhost dbname=test user=postgres")
 print_r(db)
 print_r(err)
 print("---------------")
---local db, err = pgsql.connect("host=localhost dbname=test user=postgres")
-local db, err = pgsql.connect("host=localhost dbname=test user=postgresql")
+local db, err = pgsql.connect("host=localhost dbname=test user=postgres")
+--local db, err = pgsql.connect("host=localhost dbname=test user=postgresql")
 print_r(db)
 print_r(err)
 print("++++++++++++++++++++")
@@ -159,3 +159,6 @@ print('---- line 2 -----')
 --print_r(db:untrace())
 ]====]--
 ]=====]--
+
+local res = db:prepare("my_query", "SELECT * FROM tbl WHERE id = $1")
+print_r(res)
