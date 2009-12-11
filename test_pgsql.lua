@@ -114,6 +114,20 @@ db:end_copy()
 db:query("LISTEN author_updated;")
 local notify = db:get_notify("PGSQL_BOTH")
 print_r(notify)
+print('--------------------------------');
+local a,b,c = db:meta_data('xx.tbl')
+print_r(a)
+print_r(b)
+local a,b,c = db:meta_data('onetbl')
+print_r(a)
+print_r(b)
+print('--------------------------------');
+
+local a,b,c = db:meta_data('tbl')
+print_r(a)
+print_r(b)
+print('--------------------------------');
+--print_r(_G);
 --[=====[
 local f = res:fetch_assoc()
 print_r(res:field_is_null('id'));

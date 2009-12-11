@@ -613,6 +613,123 @@ static int Lpg_get_notify (lua_State *L) {
 	return 1;
 }
 
+static int Lpg_meta_data (lua_State *L) {
+    PGresult *res;
+    const char *tmp_name, *tmp_name2 = NULL;
+	const char *sql;
+    int i, num_rows;
+    lua_pg_conn *my_conn = Mget_conn (L);
+
+    const char *table_name = luaL_optstring (L, 2, NULL);
+
+    if (table_name == NULL) {
+		lua_pushboolean(L, 0);
+        lua_pushstring(L, "The table name must be specified");
+		return 2;
+    }
+
+	/* match out the public.tbl */
+	lua_getglobal(L, "string");
+	lua_getfield(L, -1, "match");
+
+	if (lua_isfunction(L, -1) != 1) {
+		lua_pushboolean(L, 0);
+		lua_pushstring(L, "string.match is not a function?");
+		return 2;
+	}
+
+	lua_pushstring(L, table_name);
+	lua_pushstring(L, "^([^.]+)%.([^.]+)");
+
+	if (lua_pcall(L, 2, 2, 0) != 0) {
+		lua_pushboolean(L, 0);
+		lua_tostring(L, -1);
+		return 2;
+	}
+
+	if (lua_isnoneornil(L, -1)) {
+        /* Default schema */
+        tmp_name2 = table_name;
+        tmp_name = "public";
+	} else {
+		tmp_name = lua_tostring(L, -2);
+		tmp_name2 = lua_tostring(L, -1);
+	}
+
+	lua_pop(L, 4);
+
+    lua_pushfstring(L,
+        "SELECT a.attname, a.attnum, t.typname, a.attlen, a.attnotNULL, a.atthasdef, a.attndims "
+        "FROM pg_class as c, pg_attribute a, pg_type t, pg_namespace n "
+        "WHERE a.attnum > 0 AND a.attrelid = c.oid AND c.relname = '%s' AND c.relnamespace = n.oid AND n.nspname = '%s'"
+		"AND a.atttypid = t.oid ORDER BY a.attnum;",
+		tmp_name2, tmp_name);
+	sql = lua_tolstring(L, -1, NULL);
+	lua_pop(L, 1);
+
+
+    res = PQexec(my_conn->conn, sql);
+    if (PQresultStatus(res) != PGRES_TUPLES_OK || (num_rows = PQntuples(res)) == 0) {
+		lua_pushboolean(L, 0);
+        lua_pushfstring(L, "Table '%s' doesn't exists", table_name);
+        PQclear(res);
+        return 2;
+    }
+
+	//return 1;
+	lua_newtable(L);
+
+    for (i = 0; i < num_rows; i++) {
+		/* table key */
+		lua_pushstring(L, PQgetvalue(res,i,0));
+		/* sub table value */
+		lua_newtable(L);
+
+		lua_pushstring(L, "num");
+		lua_pushnumber(L, atoi(PQgetvalue(res,i,1)));
+		lua_rawset(L, -3);
+
+		lua_pushstring(L, "type");
+		lua_pushstring(L, PQgetvalue(res,i,2));
+		lua_rawset(L, -3);
+
+		lua_pushstring(L, "len");
+		lua_pushnumber(L, atoi(PQgetvalue(res,i,3)));
+		lua_rawset(L, -3);
+
+        if (!strcmp(PQgetvalue(res, i, 4), "t")) {
+			lua_pushstring(L, "not null");
+			lua_pushboolean(L, 1);
+			lua_rawset(L, -3);
+        }
+        else {
+			lua_pushstring(L, "not null");
+			lua_pushboolean(L, 0);
+			lua_rawset(L, -3);
+        }
+        if (!strcmp(PQgetvalue(res,i,5), "t")) {
+			lua_pushstring(L, "has default");
+			lua_pushboolean(L, 1);
+			lua_rawset(L, -3);
+        }
+        else {
+			lua_pushstring(L, "has default");
+			lua_pushboolean(L, 0);
+			lua_rawset(L, -3);
+        }
+
+		lua_pushstring(L, "array dims");
+		lua_pushnumber(L, atoi(PQgetvalue(res,i,6)));
+		lua_rawset(L, -3);
+		/* into sub table*/
+		lua_rawset(L, -3);
+    }
+
+    PQclear(res);
+	
+	return 1;
+}
+
 static int Lpg_last_error (lua_State *L) {
     lua_pushstring(L, PQerrorMessage(Mget_conn(L)->conn));
     return 1;
@@ -1296,6 +1413,7 @@ int luaopen_pgsql (lua_State *L) {
         { "put_line",   Lpg_put_line },
         { "get_notify",   Lpg_get_notify },
         { "end_copy",   Lpg_end_copy },
+        { "meta_data",   Lpg_meta_data },
         { "close",   Lpg_close },
         { NULL, NULL }
     };
