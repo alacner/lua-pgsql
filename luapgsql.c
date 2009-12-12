@@ -1490,6 +1490,51 @@ static int Lpg_fetch_all (lua_State *L) {
 	return Lpg_do_fetch_all(L, my_res);
 }
 
+static int Lpg_fetch_all_columns (lua_State *L) {
+
+    char *element;
+    size_t num_fields, element_len;
+    int pg_numrows, pg_row;
+
+	lua_pg_res *my_res = Mget_res (L);
+
+    long colno = luaL_optnumber(L, 2, 0);
+
+    if ((pg_numrows = PQntuples(my_res->res)) <= 0) {
+		lua_pushboolean(L, 0);
+		return 1;
+    }
+
+	num_fields = PQnfields(my_res->res);
+
+    if (colno >= num_fields || colno < 0) {
+		lua_pushboolean(L, 0);
+		lua_pushfstring(L, "Invalid column number '%ld'", colno);
+		return 2;
+    }
+
+	lua_newtable(L); /* result */
+
+    for (pg_row = 0; pg_row < pg_numrows; pg_row++) {
+		
+		if (PQgetisnull(my_res->res, pg_row, colno)) {
+			lua_pushstring (L, "");
+			lua_rawseti (L, -2, pg_row);
+		} else {
+
+			element = PQgetvalue(my_res->res, pg_row, colno);
+			element_len = (element ? strlen(element) : 0);
+
+			if (element) {
+				luaM_pushvalue(L, element, element_len);
+				lua_rawseti (L, -2, pg_row);
+			}
+		}
+    }
+
+	return 1;
+}
+
 static int Lpg_last_oid (lua_State *L) {
 	Oid oid;
 
@@ -1633,6 +1678,7 @@ int luaopen_pgsql (lua_State *L) {
         { "fetch_array",   Lpg_fetch_array },
         { "fetch_result",   Lpg_fetch_result },
         { "fetch_all",   Lpg_fetch_all },
+        { "fetch_all_columns",   Lpg_fetch_all_columns },
         { "last_oid",   Lpg_last_oid },
         { "result_error",   Lpg_result_error },
         { "result_seek",   Lpg_result_seek },
