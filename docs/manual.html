@@ -1,0 +1,578 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+<meta http-equiv="Content-Language" content="en" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="author" content="Alacner Zhang" />
+<meta name="keywords" content="LUA,PGSQL,POSTGRESQL,lua-pgsql" />
+<meta name="description" content="homepage of lua-pgsql" />
+<title>lua-pgsql: a Postgresql driver for lua</title>
+</head>
+<body>
+<h1>lua-pgsql: a Postgresql driver for lua</h1>
+<em>(c) 2009-19 Alacner zhang &lt;alacner@gmail.com&gt;<br/>* This content is released under the MIT License. </em>
+
+<h2>Table of Contents</h2>
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li>
+    <a href="#functions">Functions</a>
+    <ul>
+        <li>
+            <a href="#functions_public">public objects</a>
+            <ul>
+                <li><a href="#functions_public_version">version</a></li>
+                <li><a href="#functions_public_connect">connect</a></li>
+            </ul>
+        </li>
+        <li>
+            <a href="#functions_link">link objects</a>
+            <ul>
+				<li><a href=#functions_link_port">port</a></li>
+				<li><a href=#functions_link_dbname">dbname</a></li>
+				<li><a href=#functions_link_tty">tty</a></li>
+				<li><a href=#functions_link_get_pid">get_pid</a></li>
+				<li><a href=#functions_link_get_field_name">get_field_name</a></li>
+				<li><a href=#functions_link_get_field_table">get_field_table</a></li>
+				<li><a href=#functions_link_ping">ping</a></li>
+				<li><a href=#functions_link_version">version</a></li>
+				<li><a href=#functions_link_connection_status">connection_status</a></li>
+				<li><a href=#functions_link_connection_busy">connection_busy</a></li>
+				<li><a href=#functions_link_connection_reset">connection_reset</a></li>
+				<li><a href=#functions_link_transaction_status">transaction_status</a></li>
+				<li><a href=#functions_link_options">options</a></li>
+				<li><a href=#functions_link_parameter_status">parameter_status</a></li>
+				<li><a href=#functions_link_last_error">last_error</a></li>
+				<li><a href=#functions_link_escape_bytea">escape_bytea</a></li>
+				<li><a href=#functions_link_unescape_bytea">unescape_bytea</a></li>
+				<li><a href=#functions_link_escape_string">escape_string</a></li>
+				<li><a href=#functions_link_cancel_query">cancel_query</a></li>
+				<li><a href=#functions_link_trace">trace</a></li>
+				<li><a href=#functions_link_untrace">untrace</a></li>
+				<li><a href=#functions_link_client_encoding">client_encoding</a></li>
+				<li><a href=#functions_link_set_client_encoding">set_client_encoding</a></li>
+				<li><a href=#functions_link_set_error_verbosity">set_error_verbosity</a></li>
+				<li><a href=#functions_link_query">query</a></li>
+				<li><a href=#functions_link_query_params">query_params</a></li>
+				<li><a href=#functions_link_prepare">prepare</a></li>
+				<li><a href=#functions_link_execute">execute</a></li>
+				<li><a href=#functions_link_send_query">send_query</a></li>
+				<li><a href=#functions_link_send_prepare">send_prepare</a></li>
+				<li><a href=#functions_link_send_execute">send_execute</a></li>
+				<li><a href=#functions_link_send_query_params">send_query_params</a></li>
+				<li><a href=#functions_link_get_result">get_result</a></li>
+				<li><a href=#functions_link_put_line">put_line</a></li>
+				<li><a href=#functions_link_get_notify">get_notify</a></li>
+				<li><a href=#functions_link_end_copy">end_copy</a></li>
+				<li><a href=#functions_link_meta_data">meta_data</a></li>
+				<li><a href=#functions_link_lo_create">lo_create</a></li>
+				<li><a href=#functions_link_lo_unlink">lo_unlink</a></li>
+				<li><a href=#functions_link_lo_open">lo_open</a></li>
+				<li><a href=#functions_link_lo_close">lo_close</a></li>
+				<li><a href=#functions_link_lo_read">lo_read</a></li>
+				<li><a href=#functions_link_lo_write">lo_write</a></li>
+				<li><a href=#functions_link_lo_read_all">lo_read_all</a></li>
+				<li><a href=#functions_link_lo_import">lo_import</a></li>
+				<li><a href=#functions_link_lo_export">lo_export</a></li>
+				<li><a href=#functions_link_lo_seek">lo_seek</a></li>
+				<li><a href=#functions_link_lo_tell">lo_tell</a></li>
+				<li><a href=#functions_link_close">close</a></li>
+            </ul>
+        </li>
+        <li>
+            <a href="#functions_result">result objects</a>
+            <ul>
+				<li><a href="#functions_result_field_num">field_num</a>
+				<li><a href="#functions_result_field_name">field_name</a>
+				<li><a href="#functions_result_field_table">field_table</a>
+				<li><a href="#functions_result_field_size">field_size</a>
+				<li><a href="#functions_result_field_type">field_type</a>
+				<li><a href="#functions_result_field_type_oid">field_type_oid</a>
+				<li><a href="#functions_result_field_is_null">field_is_null</a>
+				<li><a href="#functions_result_field_prtlen">field_prtlen</a>
+				<li><a href="#functions_result_fetch_row">fetch_row</a>
+				<li><a href="#functions_result_fetch_assoc">fetch_assoc</a>
+				<li><a href="#functions_result_fetch_array">fetch_array</a>
+				<li><a href="#functions_result_fetch_result">fetch_result</a>
+				<li><a href="#functions_result_fetch_all">fetch_all</a>
+				<li><a href="#functions_result_fetch_all_columns">fetch_all_columns</a>
+				<li><a href="#functions_result_last_oid">last_oid</a>
+				<li><a href="#functions_result_result_error">result_error</a>
+				<li><a href="#functions_result_result_seek">result_seek</a>
+				<li><a href="#functions_result_result_status">result_status</a>
+				<li><a href="#functions_result_result_error_field">result_error_field</a>
+				<li><a href="#functions_result_free_result">free_result</a>
+				<li><a href="#functions_result_num_fields">num_fields</a>
+				<li><a href="#functions_result_num_rows">num_rows</a>
+				<li><a href="#functions_result_affected_rows">affected_rows</a>
+            </ul>
+        </li>
+    </ul>
+</li>
+</ul>
+
+<a name="introduction" />
+<h2>Introduction</h2>
+This is a driver for lua to use Postgresql 8.1.x or newer. You can download lua-pgsql from <a target="_blank" href="/git/?p=lua-pgsql.git;a=summary">git</a>and <a target="_blank" href="/bug.php?project=lua-pgsql">report bug</a> for me and i'll fix it as quickly as i can.
+<br/>after download,you can install like this.
+<pre  style='padding: 5px; margin: 10px; border: 1px solid #cccccc;' class='escaped'>
+tar xzvf lua-pgsql.*
+cd lua-pgsql.*
+make
+make install
+</pre>
+
+<a name="functions" />
+<h2>Functions</h2>
+<pre  style='padding: 5px; margin: 10px; border: 1px solid #cccccc;' class='escaped'>
+require "pgsql"
+</pre>
+
+<a name="functions_public" />
+<h3>Public objects</h3>
+create the pgsql connect link handle.
+
+<a name="functions_public_version" />
+<h4>pgsql.version()</h4>
+<pre  style='padding: 5px; margin: 10px; border: 1px solid #cccccc;' class='escaped'>
+pgsql.version()
+</pre>
+return the lua-pgsql version infojust like:
+<pre  style='padding: 5px; margin: 10px; border: 1px solid #cccccc;' class='escaped'>
+luapgsql (1.0.0) - PostgreSQL driver
+(c) 2009-19 Alacner zhang &lt;alacner@gmail.com&gt;
+This content is released under the MIT License.
+</pre>
+
+<a name="functions_public_connect" />
+<h4>pgsql.conncet(connection_string)</h4>
+opens a connection to a PostgreSQL database specified by the connection_string . 
+
+<pre  style='padding: 5px; margin: 10px; border: 1px solid #cccccc;' class='escaped'>
+local dberr = pgsql.connect('host=localhost dbname=test user=postgres') -- if db == nil then err is the erroror db is the pgsql link handle
+</pre>
+The connection_string can be empty to use all default parametersor it can contain one or more parameter settings separated by whitespace. Each parameter setting is in the form keyword = value. Spaces around the equal sign are optional. To write an empty value or a value containing spacessurround it with single quotese.g.keyword = 'a value'. Single quotes and backslashes within the value must be escaped with a backslashi.e.\' and \\. 
+
+The currently recognized parameter keywords are: host hostaddr port dbname user password connect_timeout options tty (ignored)sslmode requiressl (deprecated in favor of sslmode )and service . Which of these arguments exist depends on your PostgreSQL version. 
+
+<a name="functions_link" />
+<h3>Link objects</h3>
+the methods to contol the pgsql link handle
+
+<a name="functions_link_port" />
+<h4>db:port()</h4>
+returns the port number that the given PostgreSQL connection resource is connected to.
+
+<a name="functions_link_dbname" />
+<h4>db:dbname()</h4>
+returns the name of the database that the given PostgreSQL connection resource.
+
+<a name="functions_link_tty" />
+<h4>db:tty()</h4>
+returns the TTY name that server side debugging output is sent to on the given PostgreSQL connection resource.
+
+<a name="functions_link_get_pid" />
+<h4>db:get_pid()</h4>
+gets the backend's (database server process) PID. The PID is useful to determine whether or not a NOTIFY message received via db:get_notify() is sent from another process or not. 
+
+<a name="functions_link_get_field_name" />
+<h4>db:get_field_name(field_number)</h4>
+returns the name of the field occupying the given field_number in the given PostgreSQL result resource. Field numbering starts from 0. 
+<br/>
+field_number(int) : Field number, starting from 0. 
+
+<a name="functions_link_get_field_table" />
+<h4>db:get_field_table(field_number)</h4>
+returns the name of the table that field belongs to, or the table's oid if oid_only is TRUE. 
+<br/>
+field_number(int) : Field number, starting from 0. 
+
+<a name="functions_link_ping" />
+<h4>db:ping()</h4>
+pings a database connection and tries to reconnect it if it is broken. 
+
+<a name="functions_link_version" />
+<h4>db:version()</h4>
+returns an array with the client, protocol and server version. Protocol and server versions are only available if LUA was compiled with PostgreSQL 7.4 or later. 
+
+For more detailed server information, use db:parameter_status(). 
+
+
+<a name="functions_link_connection_status" />
+<h4>db:connection_status()</h4>
+returns the status of the specified connection . 
+<br/>
+Return Values : PGSQL_CONNECTION_OK or PGSQL_CONNECTION_BAD. 
+
+<a name="functions_link_connection_busy" />
+<h4>connection_busy()</h4>
+determines whether or not a connection is busy. If it is busy, a previous query is still executing. If db:get_result() is used on the connection, it will be blocked. 
+<br/>
+Return Values: Returns TRUE if the connection is busy, FALSE otherwise. 
+
+<a name="functions_link_connection_reset" />
+<h4>connection_reset()</h4>
+resets the connection. It is useful for error recovery. 
+
+<a name="functions_link_transaction_status" />
+<h4>db:transaction_status()</h4>
+Returns the current in-transaction status of the server. 
+<br/>
+Return Values: The status can be PGSQL_TRANSACTION_IDLE (currently idle), PGSQL_TRANSACTION_ACTIVE (a command is in progress), PGSQL_TRANSACTION_INTRANS (idle, in a valid transaction block), or PGSQL_TRANSACTION_INERROR (idle, in a failed transaction block). PGSQL_TRANSACTION_UNKNOWN is reported if the connection is bad. PGSQL_TRANSACTION_ACTIVE is reported only when a query has been sent to the server and not yet completed. 
+
+
+<a name="functions_link_options" />
+<h4>db:options()</h4>
+will return a string containing the options specified on the given PostgreSQL connection resource. 
+
+<a name="functions_link_parameter_status" />
+<h4>db:parameter_status(param_name)</h4>
+Looks up a current parameter setting of the server. 
+<br/>
+param_name(string): Possible param_name values include server_version, server_encoding, client_encoding, is_superuser, session_authorization, DateStyle, TimeZone, and integer_datetimes. 
+
+<a name="functions_link_last_error" />
+<h4>db:last_error()</h4>
+returns the last error message for a given connection . 
+
+<a name="functions_link_escape_bytea" />
+<h4>db:escape_bytea(data)</h4>
+escapes string for bytea datatype. It returns escaped string. 
+<br/>
+data(string): A string containing text or binary data to be inserted into a bytea column. 
+
+<a name="functions_link_unescape_bytea" />
+<h4>db:unescape_bytea(data)</h4>
+unescapes PostgreSQL bytea data values. It returns the unescaped string, possibly containing binary data.
+<br/>
+data(string): A string containing PostgreSQL bytea data to be converted into a PHP binary string. 
+
+<a name="functions_link_escape_string" />
+<h4>db:escape_string(data)</h4>
+escapes a string for insertion into the database. It returns an escaped string in the PostgreSQL format. If the type of the column is bytea, db:escape_bytea() must be used instead. 
+
+<a name="functions_link_cancel_query" />
+<h4>db:cancel_query()</h4>
+cancels an asynchronous query sent with db:send_query(), db:send_query_params() or db:send_execute(). You cannot cancel a query executed using db:query(). 
+
+<a name="functions_link_trace" />
+<h4>db:trace(pathname, mode='w')</h4>
+enables tracing of the PostgreSQL frontend/backend communication to a file. To fully understand the results, one needs to be familiar with the internals of PostgreSQL communication protocol. 
+
+For those who are not, it can still be useful for tracing errors in queries sent to the server, you could do for example grep '^To backend' trace.log and see what queries actually were sent to the PostgreSQL server. For more information, refer to the <a href="http://www.postgresql.org/docs/current/interactive/" target='_blank'>» PostgreSQL Documentation</a>. 
+<br/>
+pathname(string): The full path and file name of the file in which to write the trace log. Same as in fopen(). 
+
+mode(string): An optional file access mode, same as for fopen(). Defaults to "w". 
+
+<a name="functions_link_untrace" />
+<h4>db:untrace()</h4>
+Stop tracing started by db:trace(). 
+
+<a name="functions_link_client_encoding" />
+<h4>db:client_encoding()</h4>
+PostgreSQL supports automatic character set conversion between server and client for certain character sets. db:client_encoding() returns the client encoding as a string. The returned string will be one of the standard PostgreSQL encoding identifiers. 
+<br/>
+Return Values: The client encoding, or FALSE on error. 
+
+<a name="functions_link_set_client_encoding" />
+<h4>db:set_client_encoding(encoding)</h4>
+sets the client encoding and returns 0 if success or -1 if error. 
+PostgreSQL will automatically convert data in the backend database encoding into the frontend encoding. 
+
+<a name="functions_link_set_error_verbosity" />
+<h4>db:set_error_verbosity()</h4>
+sets the verbosity mode, returning the connection's previous setting. In PGSQL_ERRORS_TERSE mode, returned messages include severity, primary text, and position only; this will normally fit on a single line. The default mode (PGSQL_ERRORS_DEFAULT) produces messages that include the above plus any detail, hint, or context fields (these may span multiple lines). The PGSQL_ERRORS_VERBOSE mode includes all available fields. Changing the verbosity does not affect the messages available from already-existing result objects, only subsequently-created ones. 
+<br/>
+verbosity(string): The required verbosity: PGSQL_ERRORS_TERSE, PGSQL_ERRORS_DEFAULT or PGSQL_ERRORS_VERBOSE. 
+
+
+<a name="functions_link_query" />
+<h4>db:query(query)</h4>
+executes the query on the specified database connection . 
+
+If an error occurs, and FALSE is returned, details of the error can be retrieved using the db:last_error() function if the connection is valid. 
+<br/>
+query 
+The SQL statement or statements to be executed. When multiple statements are passed to the function, they are automatically executed as one transaction, unless there are explicit BEGIN/COMMIT commands included in the query string. However, using multiple transactions in one function call is not recommended. 
+
+Data inside the query should be <a href="functions_link_escape_string">properly escaped</a>. 
+
+<a name="functions_link_query_params" />
+<h4>db:query_params(query, params)</h4>
+is like db:query(), but offers additional functionality: parameter values can be specified separately from the command string proper. db:query_params() is supported only against PostgreSQL 7.4 or higher connections; it will fail when using earlier versions. 
+
+If parameters are used, they are referred to in the query string as $1, $2, etc. params specifies the actual values of the parameters. A NULL value in this array means the corresponding parameter is SQL NULL. 
+
+The primary advantage of db:query_params() over db:query() is that parameter values may be separated from the query string, thus avoiding the need for tedious and error-prone quoting and escaping. Unlike db:query(), db:query_params() allows at most one SQL command in the given string. (There can be semicolons in it, but not more than one nonempty command.) 
+<br/>
+query(string): The parameterized SQL statement. Must contain only a single statement. (multiple statements separated by semi-colons are not allowed.) If any parameters are used, they are referred to as $1, $2, etc. 
+
+params(string/table): An array of parameter values to substitute for the $1, $2, etc. placeholders in the original prepared query string. The number of elements in the array must match the number of placeholders. 
+
+<pre  style='padding: 5px; margin: 10px; border: 1px solid #cccccc;' class='escaped'>
+local result = db:query_params('SELECT * FROM names WHERE name = $1', "name1");
+local result = db:query_params('SELECT * FROM names WHERE name = $1 and name2 = $2', {"name1", "name2"});
+</pre>
+
+
+<a name="functions_link_prepare" />
+<h4>db:prepare(stmtname, query)</h4>
+creates a prepared statement for later execution with db:execute() or db:send_execute(). This feature allows commands that will be used repeatedly to be parsed and planned just once, rather than each time they are executed. db:prepare() is supported only against PostgreSQL 7.4 or higher connections; it will fail when using earlier versions. 
+
+The function creates a prepared statement named stmtname from the query string, which must contain a single SQL command. stmtname may be "" to create an unnamed statement, in which case any pre-existing unnamed statement is automatically replaced; otherwise it is an error if the statement name is already defined in the current session. If any parameters are used, they are referred to in the query as $1, $2, etc. 
+
+Prepared statements for use with db:prepare() can also be created by executing SQL PREPARE statements. (But db:prepare() is more flexible since it does not require parameter types to be pre-specified.) Also, although there is no LUA function for deleting a prepared statement, the SQL DEALLOCATE statement can be used for that purpose. 
+<br/>
+stmtname (string):
+The name to give the prepared statement. Must be unique per-connection. If "" is specified, then an unnamed statement is created, overwriting any previously defined unnamed statement. 
+
+query (string): The parameterized SQL statement. Must contain only a single statement. (multiple statements separated by semi-colons are not allowed.) If any parameters are used, they are referred to as $1, $2, etc. 
+
+<a name="functions_link_execute" />
+<h4>db:execute(stmtname, params)</h4>
+is like db:query_params(), but the command to be executed is specified by naming a previously-prepared statement, instead of giving a query string. This feature allows commands that will be used repeatedly to be parsed and planned just once, rather than each time they are executed. The statement must have been prepared previously in the current session. pg_execute() is supported only against PostgreSQL 7.4 or higher connections; it will fail when using earlier versions. 
+
+The parameters are identical to db:query_params(), except that the name of a prepared statement is given instead of a query string. 
+
+
+<a name="functions_link_send_query" />
+<h4>db:send_query()</h4>
+like db:query() but asynchronously.
+
+<a name="functions_link_send_prepare" />
+<h4>db:send_prepare()</h4>
+like db:prepare() but asynchronously.
+
+<a name="functions_link_send_execute" />
+<h4>db:send_execute()</h4>
+like db:execute() but asynchronously.
+
+<a name="functions_link_send_query_params" />
+<h4>db:send_query_params()</h4>
+like db:query_params() but asynchronously.
+
+<a name="functions_link_get_result" />
+<h4>db:get_result()</h4>
+gets the result resource from an asynchronous query executed by db:send_query(), db:send_query_params() or db:send_execute(). 
+
+db:send_query() and the other asynchronous query functions can send multiple queries to a PostgreSQL server and db:get_result() is used to get each query's results, one by one. 
+
+<a name="functions_link_put_line" />
+<h4>db:put_line(data)</h4>
+sends a NULL-terminated string to the PostgreSQL backend server. This is needed in conjunction with PostgreSQL's COPY FROM command. 
+COPY is a high-speed data loading interface supported by PostgreSQL. Data is passed in without being parsed, and in a single transaction. 
+An alternative to using raw db:put_line() commands is to use db:copy_from(). This is a far simpler interface. 
+
+<a name="functions_link_get_notify" />
+<h4>db:get_notify()</h4>
+gets notifications generated by a NOTIFY SQL command. To receive notifications, the LISTEN SQL command must be issued. 
+<br/>
+result_type (string):
+An optional parameter that controls how the returned array is indexed. result_type is a constant and can take the following values: PGSQL_ASSOC, PGSQL_NUM and PGSQL_BOTH. Using PGSQL_NUM, db:get_notify() will return an array with numerical indices, using PGSQL_ASSOC it will return only associative indices while PGSQL_BOTH, the default, will return both numerical and associative indices. 
+
+<a name="functions_link_end_copy" />
+<h4>db:end_copy()</h4>
+syncs the PostgreSQL frontend (usually a web server process) with the PostgreSQL server after doing a copy operation performed by db:put_line(). db:end_copy() must be issued, otherwise the PostgreSQL server may get out of sync with the frontend and will report an error. 
+<br/>
+
+<a name="functions_link_meta_data" />
+<h4>db:meta_data(table_name)</h4>
+returns table definition for table_name as an array.
+<br/>
+table_name(string): The name of the table. 
+
+<a name="functions_link_lo_create" />
+<h4>db:lo_create()</h4>
+creates a large object and returns the OID of the large object. PostgreSQL access modes INV_READ, INV_WRITE, and INV_ARCHIVE are not supported, the object is created always with both read and write access. INV_ARCHIVE has been removed from PostgreSQL itself (version 6.3 and above). 
+
+To use the large object interface, it is necessary to enclose it within a transaction block. 
+
+Instead of using the large object interface (which has no access controls and is cumbersome to use), try PostgreSQL's bytea column type and db:escape_bytea(). 
+
+<a name="functions_link_lo_unlink" />
+<h4>db:lo_unlink(oid)</h4>
+deletes a large object with the oid . Returns TRUE on success or FALSE on failure. 
+<br/>
+oid (int): The OID of the large object in the database. 
+
+
+<a name="functions_link_lo_open" />
+<h4>db:lo_open(oid, mode)</h4>
+opens a large object in the database and returns large object resource so that it can be manipulated. 
+<br/>
+oid(int) : The OID of the large object in the database. 
+
+mode : Can be either "r" for read-only, "w" for write only or "rw" for read and write. 
+
+<a name="functions_link_lo_close" />
+<h4>db:lo_close(oid)</h4>
+closes a large object. large_object is a resource for the large object from db:lo_open(). 
+
+<a name="functions_link_lo_read" />
+<h4>db:lo_read(oid[,len])</h4>
+reads at most len bytes from a large object and returns it as a string. 
+<br/>
+oid: PostgreSQL large object (LOB) resource, returned by db:lo_open(). 
+len: An optional maximum number of bytes to return. Defaults to 8192. 
+
+<a name="functions_link_lo_write" />
+<h4>db:lo_write(oid, data[, len])</h4>
+writes data into a large object at the current seek position. 
+<br/>
+data: The data to be written to the large object. If len is specified and is less than the length of data , only len bytes will be written. 
+len :An optional maximum number of bytes to write. Must be greater than zero and no greater than the length of data . Defaults to the length of data . 
+
+<a name="functions_link_lo_read_all" />
+<h4>db:lo_read_all(oid)</h4>
+read all data in maximum number of bytes to return, Defaults to 8192
+<br/>
+Return Values: 1) Number of bytes read or FALSE on error. 2) The data contents. 
+
+<a name="functions_link_lo_import" />
+<h4>db:lo_import(pathname, oid)</h4>
+creates a new large object in the database using a file on the filesystem as its data source. 
+<br/>
+pathname : The full path and file name of the file on the client filesystem from which to read the large object data. 
+
+<a name="functions_link_lo_export" />
+<h4>db:lo_export(oid, pathname)</h4>
+takes a large object in a PostgreSQL database and saves its contents to a file on the local filesystem. 
+
+<a name="functions_link_lo_seek" />
+<h4>db:lo_seek(oid, offset[,whence='PGSQL_SEEK_CUR'])</h4>
+seeks a position within a large object resource. 
+<br/>
+offset(int): The number of bytes to seek. 
+
+whence(string) :One of the constants PGSQL_SEEK_SET (seek from object start), PGSQL_SEEK_CUR (seek from current position) or PGSQL_SEEK_END (seek from object end) 
+
+<a name="functions_link_lo_tell" />
+<h4>db:lo_tell(oid)</h4>
+returns the current position (offset from the beginning) of a large object. 
+<br/>
+Return Values: The current seek offset (in number of bytes) from the beginning of the large object. If there is an error, the return value is negative. 
+
+<a name="functions_link_close" />
+<h4>db:close()</h4>
+closes the non-persistent connection to a PostgreSQL database associated with the given connection resource. 
+
+<a name="functions_result" />
+<h3>Result objects</h3>
+the methods to contol the pgsql result handle 
+
+<a name="functions_result_field_num" />
+<h4>res:field_num(field_name)</h4>
+will return the number of the field number that corresponds to the field_name in the given PostgreSQL result resource. 
+<br/>
+field_name(string): The name of the field. 
+
+<a name="functions_result_field_name" />
+<h4>res:field_name(field_number)</h4>
+returns the name of the field occupying the given field_number in the given PostgreSQL result resource. Field numbering starts from 0. 
+
+<a name="functions_result_field_table" />
+<h4>res:field_table(field_number[,oid_only=0])</h4>
+ returns the name of the table that field belongs to, or the table's oid if oid_only is TRUE. 
+
+<a name="functions_result_field_size" />
+<h4>res:field_size(field_number)</h4>
+returns the internal storage size (in bytes) of the field number in the given PostgreSQL result . 
+
+<a name="functions_result_field_type" />
+<h4>res:field_type()</h4>
+returns a string containing the base type name of the given field_number in the given PostgreSQL result resource. 
+
+<a name="functions_result_field_type_oid" />
+<h4>res:field_type_oid(field_number)</h4>
+returns an integer containing the OID of the base type of the given field_number in the given PostgreSQL result resource. 
+
+<a name="functions_result_field_is_null" />
+<h4>res:field_is_null(row, field)</h4>
+tests if a field in a PostgreSQL result resource is SQL NULL or not.
+<br/>
+row :Row number in result to fetch. Rows are numbered from 0 upwards. If omitted, current row is fetched. 
+
+field :Field number (starting from 0) as an integer or the field name as a string. 
+
+<a name="functions_result_field_prtlen" />
+<h4>res:field_prtlen(field_name_or_number)</h4>
+returns the actual printed length (number of characters) of a specific value in a PostgreSQL result . Row numbering starts at 0. This function will return -1 on an error. 
+
+<a name="functions_result_fetch_row" />
+<h4>res:fetch_row()</h4>
+fetches one row of data from the result associated with the specified result resource. 
+
+<a name="functions_result_fetch_assoc" />
+<h4>res:fetch_assoc()</h4>
+returns an associative array that corresponds to the fetched row (records). 
+
+<a name="functions_result_fetch_array" />
+<h4>res:fetch_array(result_type)</h4>
+is an extended version of res:fetch_row(). In addition to storing the data in the numeric indices (field number) to the result array, it can also store the data using associative indices (field name). It stores both indicies by default. 
+<br/>
+result_type :An optional parameter that controls how the returned array is indexed. result_type is a constant and can take the following values: PGSQL_ASSOC, PGSQL_NUM and PGSQL_BOTH. Using PGSQL_NUM, res:fetch_array() will return an array with numerical indices, using PGSQL_ASSOC it will return only associative indices while PGSQL_BOTH, the default, will return both numerical and associative indices. 
+
+<a name="functions_result_fetch_result" />
+<h4>res:fetch_result(field)</h4>
+returns the value of a particular row and field (column) in a PostgreSQL result resource. 
+<br/>
+field: A string representing the name of the field (column) to fetch, otherwise an int representing the field number to fetch. Fields are numbered from 0 upwards. 
+
+<a name="functions_result_fetch_all" />
+<h4>res:fetch_all()</h4>
+returns an array that contains all rows (records) in the result resource. 
+
+<a name="functions_result_fetch_all_columns" />
+<h4>res:fetch_all_columns(column)</h4>
+returns an array that contains all rows (records) in a particular column of the result resource. 
+<br/>
+column :Column number, zero-based, to be retrieved from the result resource. Defaults to the first column if not specified. 
+
+<a name="functions_result_last_oid" />
+<h4>res:last_oid()</h4>
+is used to retrieve the OID assigned to an inserted row. 
+
+<a name="functions_result_result_error" />
+<h4>res:result_error()</h4>
+returns any error message associated with the result resource. Therefore, the user has a better chance of getting the correct error message than with res:last_error(). 
+
+<a name="functions_result_result_seek" />
+<h4>res:result_seek(offset)</h4>
+sets the internal row offset in a result resource. 
+
+<a name="functions_result_result_status" />
+<h4>res:result_status(type)</h4>
+returns the status of a result resource, or the PostgreSQL command completion tag associated with the result 
+<br/>
+type :Either PGSQL_STATUS_LONG to return the numeric status of the result , or PGSQL_STATUS_STRING to return the command tag of the result . If not specified, PGSQL_STATUS_LONG is the default. 
+
+<a name="functions_result_result_error_field" />
+<h4>res:result_error_field(fieldcode)</h4>
+returns one of the detailed error message fields associated with result resource. It is only available against a PostgreSQL 7.4 or above server. The error field is specified by the fieldcode . 
+<br/>
+fieldcode :Possible fieldcode values are: PGSQL_DIAG_SEVERITY, PGSQL_DIAG_SQLSTATE, PGSQL_DIAG_MESSAGE_PRIMARY, PGSQL_DIAG_MESSAGE_DETAIL, PGSQL_DIAG_MESSAGE_HINT, PGSQL_DIAG_STATEMENT_POSITION, PGSQL_DIAG_INTERNAL_POSITION (PostgreSQL 8.0+ only), PGSQL_DIAG_INTERNAL_QUERY (PostgreSQL 8.0+ only), PGSQL_DIAG_CONTEXT, PGSQL_DIAG_SOURCE_FILE, PGSQL_DIAG_SOURCE_LINE or PGSQL_DIAG_SOURCE_FUNCTION. 
+
+
+<a name="functions_result_free_result" />
+<h4>res:free_result()</h4>
+frees the memory and data associated with the specified PostgreSQL query result resource. 
+
+<a name="functions_result_num_fields" />
+<h4>res:num_fields()</h4>
+returns the number of fields (columns) in a PostgreSQL result resource. 
+
+<a name="functions_result_num_rows" />
+<h4>res:num_rows()</h4>
+return the number of rows in a PostgreSQL result resource. 
+
+<a name="functions_result_affected_rows" />
+<h4>res:affected_rows()</h4>
+returns the number of tuples (instances/records/rows) affected by INSERT, UPDATE, and DELETE queries. 
+
+</body>
+</html>
