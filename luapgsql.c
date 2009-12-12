@@ -1026,7 +1026,7 @@ static int Lpg_prepare (lua_State *L) {
 
     lua_pg_conn *my_conn = Mget_conn (L);
 	const char *stmtname = luaL_checkstring (L, 2);
-	const char *query= luaL_checkstring (L, 2);
+	const char *query = luaL_checkstring (L, 3);
 
 
 	if (PQsetnonblocking(my_conn->conn, 0)) {
