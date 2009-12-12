@@ -19,7 +19,26 @@ local db, err = pgsql.connect("host=localhost dbname=test user=postgres")
 print_r(db)
 print_r(err)
 print("++++++++++++++++++++")
---print("++++++++++++++++++++")
+local oid = db:lo_create()
+print_r(oid)
+print("---------------")
+local lo = db:lo_open(oid, 'w+')
+print_r(lo)
+db:lo_write(lo, "haha");
+print_r(db:lo_read(lo));
+print_r(db:lo_read_all(lo));
+
+print("---  ------------")
+print_r(db:lo_import("/tmp/ddd"));
+print("---  ------------")
+print_r(db:lo_export(lo, "/tmp/ddd"));
+print_r(db:lo_read_all(lo));
+print("+++++lo+++++++++++++++")
+print_r(db:lo_close(lo))
+print_r(lo)
+print("++++++lo++++++++++++++")
+print_r(db:lo_unlink(oid))
+print("++++++++++++++++++++")
 --[====[
 local eba = db:escape_bytea("INSERT INTO test_table (image) VALUES ('$image_escaped'::bytea);")
 print_r(eba)
@@ -62,6 +81,7 @@ print_r(db:get_field_name(18))
 
 print_r(db:set_error_verbosity("PGSQL_ERRORS_VERBOSE"));
 ]====]--
+--[=====[
 local res = db:query([[INSERT INTO "public"."tbl" ("time") VALUES (NULL) ]])
 print_r(res)
 print_r(res:num_rows())
@@ -76,7 +96,6 @@ print('---- line 1 -----')
 db:send_query([[SELECT "id","time" FROM "public"."tbl"]])
 local res = db:get_result()
 print_r(res:result_error())
---[=====[
 print('---- line 1.1 -----')
 print_r(res)
 print('---- line 1.2 -----')
@@ -89,6 +108,7 @@ local m, n = res:field_table(0)
 print_r(m)
 print_r(n)
 --]=====]
+--[=====[
 local f = res:fetch_row()
 --local f = res:fetch_assoc()
 while f do
@@ -106,7 +126,6 @@ print_r(res:result_status("PGSQL_STATUS_STRING"))
 print_r('==============')
 print_r(res:result_error_field())
 print_r('==============')
---[=====[
 print_r(db:end_copy())
 
 db:query("create table bar (a int4, b char(16), d float8)")
@@ -158,7 +177,6 @@ print_r(res)
 print('---- line 2 -----')
 --print_r(db:untrace())
 ]====]--
-]=====]--
 local res = db:prepare("my_query", "SELECT * FROM tbl WHERE id <> $1")
 print("===========================")
 local res,b,c = db:execute("my_query", {"2", "3"})
@@ -183,3 +201,4 @@ print_r(res:fetch_all_columns())
 print_r(b)
 print_r(c)
 print("===========================")
+]=====]--
